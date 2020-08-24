@@ -1,7 +1,21 @@
+# OSX noise
+.DS_Store
+
+# Tarballs
+*.tar.gz
+*.tgz
+*.spl
+
+# Local content
+local/
+local.meta
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*.py.bak
 
 # C extensions
 *.so
