@@ -1,0 +1,6 @@
+[]
+access = read : [ * ], write : [ admin, kv_admin ]
+export = system
+
+[views]
+export = none
