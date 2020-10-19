@@ -13,14 +13,19 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import str
 from past.utils import old_div
-import sys
+import sys, os
+
+# Add lib folders to import path
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
+
 from splunk.clilib import cli_common as cli
 from splunklib.searchcommands import \
     dispatch, GeneratingCommand, Configuration, Option, validators
 from splunk.clilib import cli_common as cli
 from splunklib.client import connect
 import splunk.rest as rest
-import os, stat
+import stat
 import json
 import http.client, urllib.request, urllib.parse, urllib.error
 import urllib.request, urllib.error, urllib.parse
@@ -129,7 +134,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 			logger.debug("%s User %s is authorized.", facility, active_user)
 		else:
 			logger.error("%s User %s is unauthorized. Has the kv_admin role been granted?", facility, active_user)
-			yield({'Error': 'User %s is unauthorized. Has the kv_admin role been granted?'.format(active_user) })
+			yield({'Error': 'User {0} is unauthorized. Has the kv_admin role been granted?'.format(active_user) })
 			sys.exit(3)
 
 		logger.info('%s kvstorebackup started', facility)
@@ -210,7 +215,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 
 			except urllib.error.HTTPError as e:
 				logger.critical('%s ERROR Failed to create app list: %s', facility, json.dumps(json.loads(e.read())))
-				yield({'Error': 'Failed to create app list: %s'.format(json.dumps(json.loads(e.read())))})
+				yield({'Error': 'Failed to create app list: {0}}'.format(json.dumps(json.loads(e.read())))})
 				sys.exit(3)
 
 		collections = []
@@ -227,7 +232,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 				#logger.debug('%s Server response: %s', facility, json.dumps(response))
 			except urllib.error.HTTPError as e:
 				logger.critical('%s ERROR Failed to download collection list: %s', facility, json.dumps(json.loads(e.read())))
-				yield({'Error': 'Failed to download collection list: %s'.format(json.dumps(json.loads(e.read())))})
+				yield({'Error': 'Failed to download collection list: {0}'.format(json.dumps(json.loads(e.read())))})
 				sys.exit(4)
 
 			logger.debug("%s Parsing response for collections in app: %s", facility, app)
@@ -316,7 +321,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 							os.remove(output_file)
 							output_file = output_file + '.gz'
 						except BaseException as e:
-							logger.warn('%s Error compressing file ' + output_file + '\n\t' + e.read(), facility)
+							logger.warn('%s Error compressing file ' + output_file + '\n\t' + repr(e), facility)
 
 					if total_record_count == maxrows:
 						logger.warning('%s Backed up KV store collection up to the limit: %s/%s', facility, entry_app, collection_name)
@@ -352,7 +357,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 
 		if max_size > 0 or max_age > 0:
 			# Check the size of all *.json and *.json.gz files in the directory
-			dir = self.path
+			#dir = self.path
 			pattern = os.path.join(self.path, "*#*#*.json*")
 
 			# Get a listing of the files and check the file sizes

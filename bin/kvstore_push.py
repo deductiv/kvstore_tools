@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-# KV Store Migrate
-# Enables migration of collections on a per-app basis
+# KV Store Push
+# Enables pushing of KV Store collections from one search head or cluster to another.
 # Pushes collections from a search head to a remote search head or SHC node
 
 # Author: Florian Miehe
@@ -11,7 +11,12 @@
 from future import standard_library
 standard_library.install_aliases()
 from builtins import str
-import sys
+import sys, os
+
+# Add lib folders to import path
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
+
 from splunk.clilib import cli_common as cli
 from splunklib.searchcommands import \
 	dispatch, GeneratingCommand, Configuration, Option, validators
@@ -19,10 +24,11 @@ from splunk.clilib import cli_common as cli
 import splunklib.client as client
 import splunk.rest as rest
 import splunk.entity as entity
-import os, stat
+
+from deductiv_helpers import *
+import stat
 import json
 import http.client, urllib.request, urllib.parse, urllib.error
-import urllib.request, urllib.error, urllib.parse
 import time
 from datetime import datetime
 import gzip
@@ -40,11 +46,11 @@ class KVStoreMigrateCommand(GeneratingCommand):
 
 	##Syntax
 
-	| kvstoremigrate app="app_name" collection="collection_name" global_scope="false" target="remotehost"
+	| kvstorepush app="app_name" collection="collection_name" global_scope="false" target="remotehost"
 
 	##Description
 
-	migrate each collection in the KV Store to a JSON file in the path specified
+	Download local KV Store contents and upload them to a remote search head. Overwrites the remote collection by default.
 
 	"""
 
@@ -69,13 +75,13 @@ class KVStoreMigrateCommand(GeneratingCommand):
 	append = Option(
 		doc='''
 			Syntax: append=[true|false]
-			Description: Specify whether or not to delete existing entries on the target.''',
+			Description: Specify whether or not to delete existing entries on the remote host.''',
 			require=False, validate=validators.Boolean())
 
 	target = Option(
 		doc='''
 			Syntax: target=<remotetarget_hostname>
-			Description: Specify the hostname to migrate to. Credentials must be given via setup.''',
+			Description: Specify the hostname to push data to. Credentials must be given via setup.''',
 			require=True)
 
 	targetport = Option(
@@ -84,31 +90,7 @@ class KVStoreMigrateCommand(GeneratingCommand):
 			Description: Specify the Splunk serviceport''',
 			require=False, validate=validators.Integer(minimum=1025,maximum=65535))
 
-	def request(self, method, url, data=None, headers=None):
-		"""Helper function to fetch JSON data from the given URL"""
-		#logger = logging.getLogger('kvst')
-		if data is not None:
-			try:
-				data = urllib.parse.urlencode(data).encode("utf-8")
-			except:
-				data = data.encode("utf-8")
-
-		#req = urllib.request.Request(url, data, headers)
-		if headers is None:
-			req = urllib.request.Request(url, data=data, method=method)
-		else:
-			req = urllib.request.Request(url, data=data, headers=headers, method=method)
-
-		with urllib.request.urlopen(req) as res:
-			res_txt = res.read().decode('utf-8')
-			#logger.debug(res_txt)
-			res_code = res.getcode()
-			#logger.debug(res_code)
-			if len(res_txt)>0:
-				return json.loads(res_txt)
-			else:
-				return res_code
-
+	'''
 	# access the credentials in /servicesNS/nobody/app_name/admin/passwords
 	def getCredentials(self, sessionKey):
 		logger = logging.getLogger('kvst')
@@ -128,6 +110,7 @@ class KVStoreMigrateCommand(GeneratingCommand):
 				creds.append(cred)
 		# Return last set of credentials
 		return creds[len(creds)-1]
+	'''
 
 	def generate(self):
 		logger = logging.getLogger('kvst')
@@ -142,19 +125,22 @@ class KVStoreMigrateCommand(GeneratingCommand):
 		errors = []
 
 		# get service object for more infos about this session
-		service = client.connect(token=self._metadata.searchinfo.session_key)
+		#service = client.connect(token=self._metadata.searchinfo.session_key)
 
 		# Check permissions
 		required_role = "kv_admin"
 		active_user = self._metadata.searchinfo.username
-		if active_user in roles.get_role_users(self._metadata.searchinfo.session_key, required_role) or active_user == "admin":
+		session_key = self._metadata.searchinfo.session_key
+		splunkd_uri = self._metadata.searchinfo.splunkd_uri
+
+		if active_user in roles.get_role_users(session_key, required_role) or active_user == "admin":
 			logger.debug("%s User %s is authorized.", facility, active_user)
 		else:
 			logger.error("%s User %s is unauthorized. Has the kv_admin role been granted?", facility, active_user)
 			yield({'Error': 'User %s is unauthorized. Has the kv_admin role been granted?' % active_user })
 			sys.exit(3)
 
-		logger.info('%s kvstoremigrate started', facility)
+		logger.info('%s kvstorepush started', facility)
 
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','backups')
@@ -164,18 +150,13 @@ class KVStoreMigrateCommand(GeneratingCommand):
 
 		batch_size = int(cfg.get('backup_batch_size'))
 		logger.debug("%s Batch size: %d rows", facility, batch_size)
-		session_key = self._metadata.searchinfo.session_key
-		splunkd_uri = self._metadata.searchinfo.splunkd_uri
-
-		#if len(session_key) == 0:
-		#	print("Did not receive a session key from splunkd. " +
-		#					"Please enable passAuth in inputs.conf for this " +
-		#					"script\n")
-		#	sys.exit(2)
-
 		# get credentials - might exit if no creds are available
 		try:
-			username, password = self.getCredentials(session_key)
+			credential_list = get_credentials('kvstore_tools', session_key)
+			# Use the last credential provided
+			username = credential_list[-1]['username']
+			password = credential_list[-1]['password']
+
 			logger.debug("Username: %s / Password: %s", username, password)
 		except BaseException as e:
 			logger.critical('%s ERROR Failed to get credentials for remote Splunk instance: %s', facility, str(e))
@@ -225,13 +206,9 @@ class KVStoreMigrateCommand(GeneratingCommand):
 				password=remote_password)
 			remote_service.login()
 
-			#remote_session_key = remote_service.SessionKey
 			remote_session_key = remote_service.token
 			logger.debug(remote_session_key)
 			logger.debug('%s Remote Session_key: ' + remote_session_key, facility)
-			#remote_creds = { 'username': username, 'password': password }
-			#remote_creds = str(json.dumps(remote_creds))
-			#remote_url = remote_uri + '/servicesNS/admin/search/auth/login'
 
 			#server_content = self.request('POST', remote_url, remote_creds)
 			
@@ -248,8 +225,6 @@ class KVStoreMigrateCommand(GeneratingCommand):
 			# Enumerate all apps
 			try:
 				response, content = rest.simpleRequest("apps/local?output_mode=json", sessionKey=session_key, method='GET')
-				#logger.debug('%s Server response: %s', facility, response)
-				#logger.debug('%s Server content: %s', facility, content)
 				content = json.loads(content)
 				for entry in content["entry"]:
 					if not entry["content"]["disabled"]:
@@ -279,7 +254,7 @@ class KVStoreMigrateCommand(GeneratingCommand):
 				'Authorization': 'Splunk %s' % session_key,
 				'Content-Type': 'application/json'}
 			try:
-				response = self.request('GET', collections_url, '', headers)
+				response = request('GET', collections_url, '', headers)
 			except urllib.error.HTTPError as e:
 				logger.critical('%s ERROR Failed to download collection list: %s', facility, json.dumps(json.loads(e.read())))
 				yield({ 'Error': 'Failed to download collection list: %s' % json.dumps(json.loads(e.read())) })
@@ -297,11 +272,7 @@ class KVStoreMigrateCommand(GeneratingCommand):
 			for entry in response["entry"]:
 				entry_app = entry["acl"]["app"]
 				collection_name = entry["name"]
-				#logger.debug(entry_app)
-				#logger.debug(collection_name)
 				sharing = entry["acl"]["sharing"]
-
-				#logger.debug("Parsing entry: %s" % str(entry))
 
 				if (self.app == entry_app and self.collection == collection_name) or (self.app is None and self.collection == collection_name) or (self.app == entry_app and self.collection is None) or (sharing == 'global' and self.global_scope) or (self.app is None and self.collection is None):
 
@@ -346,7 +317,7 @@ class KVStoreMigrateCommand(GeneratingCommand):
 						skip = cursor)
 
 					# Download the data from the collection
-					response = self.request('GET', data_url, '', headers)
+					response = request('GET', data_url, '', headers)
 
 					# Remove the first and last characters ( [ and ] )
 					response = json.dumps(response)[1:-1]
@@ -401,7 +372,6 @@ class KVStoreMigrateCommand(GeneratingCommand):
 			yield {'_time': time.time(), 'app': entry_app, 'collection': collection_name, 'result': result, 'records': total_record_count, 'message': message, }
 			content_len = len(batched_response)
 			logger.debug('%s Length batched_response: ' + str(len(batched_response)), facility)
-			#logger.debug('BATCHED RESPONSE: ' + str(batched_response))
 
 			# Set URL templates
 			url_tmpl_add_collection = '%(server_uri)s/servicesNS/%(owner)s/%(app)s/storage/collections/config?output_mode=json'
@@ -428,7 +398,7 @@ class KVStoreMigrateCommand(GeneratingCommand):
 				app=app,
 				collection=collection_name)
 
-			logger.debug('%s delete_url: ' + delete_url + ' record_url: ' + record_url, facility)
+			logger.debug('%s Delete_url: ' + delete_url + ' record_url: ' + record_url, facility)
 
 			# Use remote session_key for target Host
 			headers = {
@@ -443,42 +413,26 @@ class KVStoreMigrateCommand(GeneratingCommand):
 
 			# Get list of collections on the remote-host
 			try:
-				response = self.request('GET', collections_url, '', headers)
-			except urllib.error.HTTPError as e:
-				logger.critical('%s ERROR Failed to download remote collection list: %s', facility, e.read() )
-				yield({'Error': 'Failed to download remote collection list: %s' % e.read() } )
+				response = request('GET', collections_url, '', headers)
+			except BaseException as e:
+				logger.critical('%s ERROR Failed to download remote collection list: %s', facility, repr(e) )
+				yield({'Error': 'Failed to download remote collection list: %s' % repr(e) } )
 				sys.exit(11)
-			except urllib.error.URLError as e:
-				logger.critical('%s ERROR URLError = %s', facility, repr(e))
-				yield({'Error': 'URL Error: %s' % repr(e) })
-				sys.exit(12)
-			except http.client.HTTPException as e:
-				logger.critical('%s HTTPException: %s', facility, repr(e))
-				yield({'Error': 'HTTP Exception: %s' % repr(e) })
-				sys.exit(13)
 
 			# Look for collection in remote-collection-list, create it if necessary
 			if not any(d['name'] == collection_name for d in response["entry"]):
 				try:
-					response = self.request('POST',create_collection_url,'name=' + str(collection[1]),headers)
+					response = request('POST', create_collection_url, 'name=' + str(collection[1]), headers)
 					logger.debug('%s Created collection: %s', facility, str(collection[1]))
-				except urllib.error.URLError as e:
-					logger.critical('%s ERROR URLError = %s', facility, repr(e))
-					yield({'Error': 'URL Error: %s' % repr(e) })
-					sys.exit(15)
-				except http.client.HTTPException as e:
-					logger.critical('%s HTTPException: %s', facility, repr(e))
-					yield({'Error': 'HTTP Exception: %s' % repr(e) })
-					sys.exit(16)
 				except BaseException as e:
-					logger.critical('%s ERROR Failed to create collection: %s', facility, str(collection[1]))
-					yield({'Error': 'Failed to create collection: %s' % repr(e) })
-					sys.exit(14)
+					logger.critical('%s ERROR Failed to create collection: %s', facility, repr(e) )
+					yield({'Error': 'Failed to create collection: %s' % repr(e) } )
+					sys.exit(15)
 			else:
 				if not self.append:
 					# Delete the collection contents
 					try:
-						response = self.request('DELETE', delete_url, '', headers)
+						response = request('DELETE', delete_url, '', headers)
 						logger.debug('%s Server response for collection deletion: %s', facility, json.dumps(response))
 					except urllib.error.HTTPError as e:
 						logger.critical('%s ERROR Failed to delete collection: %s', facility, e.read())
@@ -511,7 +465,7 @@ class KVStoreMigrateCommand(GeneratingCommand):
 				# Upload the restored records to the server
 				try:
 					#logger.debug('posting batch: ' + json.dumps(batch))
-					response = self.request('POST', record_url, json.dumps(batch), headers)
+					response = request('POST', record_url, json.dumps(batch), headers)
 					logger.debug('%s Server response: %d records uploaded.', facility, len(response))
 					batch_number += 1
 					posted += len(batch)
