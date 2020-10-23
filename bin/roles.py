@@ -2,10 +2,13 @@
 # Helper to query roles list for a given user
 # Validate authorization 
 
+# Author: J.R. Murray <jr.murray@deductiv.net>
+# Version: 2.0.0
+
 from builtins import str
 import logging
 import json
-import splunk.rest as rest
+import splunk.rest as rest # pylint: disable=import-error
 from deductiv_helpers import eprint
 
 system_roles = {}
@@ -29,7 +32,7 @@ def get_role_users(sessionKey, role):
 	# Get system roles
 	uri = '/services/admin/roles?output_mode=json&count=-1'
 	try:
-		serverResponse, serverContent = rest.simpleRequest(uri, sessionKey=sessionKey, method='GET')
+		serverResponse, serverContent = rest.simpleRequest(uri, sessionKey=sessionKey, method='GET') # pylint: disable=unused-variable
 		roles_json = json.loads(serverContent)
 		if len(roles_json['entry']) > 0:
 			for roles_entry in roles_json['entry']:

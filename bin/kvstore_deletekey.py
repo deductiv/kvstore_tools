@@ -4,21 +4,15 @@
 # Deletes a specific record from a KV Store collection based on _key value
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 1.4.1
+# Version: 2.0.0
 
 from future import standard_library
 standard_library.install_aliases()
 from builtins import str
 import sys
-from splunk.clilib import cli_common as cli
-from splunklib.searchcommands import \
-	dispatch, GeneratingCommand, Configuration, Option, validators
-from splunklib.client import connect
-import splunk.rest as rest
 import os
 import json
-import http.client, urllib.request, urllib.parse, urllib.error
-import urllib.request, urllib.error, urllib.parse
+import urllib.parse
 import time
 #from datetime import datetime
 import gzip
@@ -26,6 +20,18 @@ import glob
 import re
 import logging
 import roles
+import kv_common as kv
+from deductiv_helpers import setup_logger, request, eprint
+
+# Add lib folders to import path
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
+# pylint: disable=import-error
+from splunk.clilib import cli_common as cli
+from splunklib.searchcommands import \
+	dispatch, GeneratingCommand, Configuration, Option, validators
+from splunklib.client import connect
+import splunk.rest as rest
 
 @Configuration()
 class KVStoreDeleteKeyCommand(GeneratingCommand):
@@ -59,118 +65,74 @@ class KVStoreDeleteKeyCommand(GeneratingCommand):
 		 Description: Specify the record to delete within the collection''',
 		 require=True)
 
-	splunkd_uri = None
-	session_key = None
-
-	def request(self, method, url, data=None, headers=None):
-		"""Helper function to fetch JSON data from the given URL"""
-		#logger = logging.getLogger('kvst')
-		if data is not None:
-			try:
-				data = urllib.parse.urlencode(data).encode("utf-8")
-			except:
-				data = data.encode("utf-8")
-
-		#req = urllib.request.Request(url, data, headers)
-		if headers is None:
-			req = urllib.request.Request(url, data=data, method=method)
-		else:
-			req = urllib.request.Request(url, data=data, headers=headers, method=method)
-
-		with urllib.request.urlopen(req) as res:
-			res_txt = res.read().decode('utf-8')
-			#logger.debug(res_txt)
-			res_code = res.getcode()
-			#logger.debug(res_code)
-			if len(res_txt)>0:
-				return json.loads(res_txt)
-			else:
-				return res_code
-
 	def generate(self):
-		logger = logging.getLogger('kvst')
-		logger.info('deletekey started')
-
-		# Sanitize input
-		if len(self.key) > 0:
-			self.logger.debug('Delete _key %s from %s', self.key, self.collection)
-		else:
+		try:
+			cfg = cli.getConfStanza('kvstore_tools','settings')
+		except BaseException as e:
+			eprint("Could not read configuration: " + repr(e))
+		
+		# Facility info - prepended to log lines
+		facility = os.path.basename(__file__)
+		facility = os.path.splitext(facility)[0]
+		try:
+			logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
+		except BaseException as e:
+			eprint("Could not create logger: " + repr(e))
+			print("Could not create logger: " + repr(e))
 			exit(1)
 
-		self.session_key = self._metadata.searchinfo.session_key
-		self.splunkd_uri = self._metadata.searchinfo.splunkd_uri
+		logger.info('Script started by %s' % self._metadata.searchinfo.username)
+		
+		session_key = self._metadata.searchinfo.session_key
+		splunkd_uri = self._metadata.searchinfo.splunkd_uri
 
-		# Check permissions
-		#required_role = "kv_admin"
-		#active_user = self._metadata.searchinfo.username
-		#if active_user in roles.get_role_users(self._metadata.searchinfo.session_key, required_role) or active_user == "admin":
-		#	logger.debug("%s User %s is authorized.", facility, active_user)
-		#else:
-		#	logger.error("%s User %s is unauthorized. Has the kv_admin role been granted?", facility, active_user)
-		#	exit(3)
+		if self.app:
+			logger.debug('App: %s' % self.app)
+		else:
+			self.app = self._metadata.searchinfo.app
+
+		if self.collection:
+			logger.debug('Collection: %s' % self.collection)
+		else:
+			logger.critical("No collection specified. Exiting.")
+			print("Error: No collection specified.")
+			exit(1)
+		
+		if self.key:
+			logger.debug('Key ID: %s' % self.collection)
+		else:
+			logger.critical("No key value specified. Exiting.")
+			print("Error: No key value specified.")
+			exit(1)
 
 		headers = {
-			'Authorization': 'Splunk %s' % self.session_key,
+			'Authorization': 'Splunk %s' % session_key,
 			'Content-Type': 'application/json'}
-		url_tmpl_app = '%(server_uri)s/servicesNS/%(owner)s/%(app)s/storage/collections/config?output_mode=json&count=0'
-
-		apps = []
+		#url_tmpl_app = '%(server_uri)s/servicesNS/%(owner)s/%(app)s/storage/collections/config?output_mode=json&count=0'
 
 		# Enumerate all apps
-		try:
-			response, content = rest.simpleRequest("apps/local?output_mode=json&count=0", sessionKey=self.session_key, method='GET')
-
-			logger.debug('Server response: %s', response)
-			content = json.loads(content)
-			for entry in content["entry"]:
-				if not entry["content"]["disabled"]:
-					apps.append(entry["name"])
-
-		except urllib.error.HTTPError as e:
-			logger.critical('ERROR Failed to create app list: %s', json.dumps(json.loads(e.read())))
-			sys.exit(3)
-
-		collections = []
-		for app in apps:
-			logger.debug("Polling collections in app: %s" % app)
-			# Enumerate all of the collections in the app
-			collections_url = url_tmpl_app % dict(
-				server_uri = self.splunkd_uri,
-				owner = 'nobody',
-				app = app)
-
-			try:
-				response = self.request('GET', collections_url, '', headers)
-				#logger.debug('Server response: %s', json.dumps(response))
-			except urllib.error.HTTPError as e:
-				logger.critical('ERROR Failed to download collection list: %s', json.dumps(json.loads(e.read())))
-				sys.exit(3)
-
-			logger.debug("Parsing response for collections in app: %s" % app)
-			for entry in response["entry"]:
-				entry_app = entry["acl"]["app"]
-				collection_name = entry["name"]
-				c = [entry_app, collection_name]
-				if c not in collections:
-					collections.append(c)
-
-		logger.debug('Collections present: %s', str(collections))
+		app_list = kv.get_server_apps(splunkd_uri, session_key, self.app)
+		collection_list = kv.get_app_collections(splunkd_uri, session_key, self.collection, self.app, app_list, True)
+		
+		logger.debug('Collections present: %s', str(collection_list))
 
 		try:
 			# Create an object for the collection
 			collection_present = False
-			for c in collections:
-			# Extract the app and collection name from the array
-			# c[0] = app, c[1] = collection name
-				if (c[1] == self.collection):
-					if self.app is None or self.app == c[0]:
-						self.app = c[0]
+			for c in collection_list:
+				# Extract the app and collection name from the array
+				# c[0] = app, c[1] = collection name
+				collection_app = c[0]
+				collection_name = c[1]
+				if (collection_name == self.collection):
+					if self.app is None or self.app == collection_app:
+						self.app = collection_app
 						collection_present = True
-					elif self.app != c[0]:
+					elif self.app != collection_app:
 						pass
 					logger.debug("Collection found: {0} in app {1}".format(self.collection, self.app))
 			if not collection_present:
-				logger.critical("KVStore collection not found: %s" % self.collection)
+				logger.critical("KVStore collection %s not found within app %s" % (self.collection, self.app))
 				exit(1)
 
 		except BaseException as e:
@@ -180,7 +142,7 @@ class KVStoreDeleteKeyCommand(GeneratingCommand):
 		url_tmpl_delete = '%(server_uri)s/servicesNS/%(owner)s/%(app)s/storage/collections/data/%(collection)s/%(id)s?output_mode=json'
 		try:
 			delete_url = url_tmpl_delete % dict(
-				server_uri = self.splunkd_uri,
+				server_uri = splunkd_uri,
 				owner = 'nobody',
 				app = self.app,
 				collection = self.collection,
@@ -188,20 +150,20 @@ class KVStoreDeleteKeyCommand(GeneratingCommand):
 			logger.debug("Delete url: " + delete_url)
 
 			try:
-				response = self.request('DELETE', delete_url, '', headers)
-				logger.debug('Server response: %s', json.dumps(response))
-			except urllib.error.HTTPError as e:
-				logger.error('ERROR Failed to delete key: %s', json.dumps(json.loads(e.read())))
+				response, response_code = request('DELETE', delete_url, '', headers)
+				logger.debug('Server response: %s', response)
+			except BaseException as e:
+				logger.error('Failed to delete key %s from collection %s/%s: %s' % (self.key, self.app, self.collection, repr(e)))
 
-			if response == 200:
-				logger.debug("Successfully deleted " + self.key)
+			if response_code == 200:
+				logger.debug("Successfully deleted key %s from collection %s/%s" % (self.key, self.app, self.collection))
 				result = "success"
 			else:
-				logger.error("Error deleting {0}: {1}".format(self.key, json.dumps(response)))
+				logger.error("Error deleting key %s from collection %s/%s: %s" % (self.key, self.app, self.collection, response))
 				result = "error"
 
-		except BaseException as exc:
-			logger.error("Error deleting {0}: {1}".format(self.key, str(exc)))
+		except BaseException as e:
+			logger.error("Error deleting key %s from collection %s/%s: %s" % (self.key, self.app, self.collection, repr(e)))
 			result = "error"
 
 		# Entry deleted

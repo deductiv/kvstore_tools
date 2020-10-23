@@ -1,11 +1,14 @@
 # kv_collection_copy.py
 # Functions for managing KV Store collection data
 
+# Author: J.R. Murray <jr.murray@deductiv.net>
+# Version: 2.0.0
+
 from builtins import str
 import json
 import logging
-import splunk.rest as rest
-from splunk.clilib import cli_common as cli
+import splunk.rest as rest # pylint: disable=import-error
+from splunk.clilib import cli_common as cli # pylint: disable=import-error
 from deductiv_helpers import eprint, request, setup_logging
 
 def get_server_apps(uri, session_key, app = None):
@@ -15,14 +18,14 @@ def get_server_apps(uri, session_key, app = None):
 	else:
 		# Enumerate all remote apps
 		apps_uri = uri + '/services/apps/local?output_mode=json'
-		response, content = rest.simpleRequest(apps_uri, sessionKey=session_key, method='GET')
+		content = rest.simpleRequest(apps_uri, sessionKey=session_key, method='GET')[1]
 		content = json.loads(content)
 		for entry in content["entry"]:
 			if not entry["content"]["disabled"]:
 				apps.append(entry["name"])
 	return apps
 
-def enumerate_collections(uri, session_key, collection, app, app_list, global_scope):
+def get_app_collections(uri, session_key, collection, app, app_list, global_scope):
 	url_tmpl_app = '%(server_uri)s/servicesNS/%(owner)s/%(app)s/storage/collections/config?output_mode=json&count=0'
 
 	# Enumerate all collections in the apps list
@@ -39,7 +42,7 @@ def enumerate_collections(uri, session_key, collection, app, app_list, global_sc
 			'Content-Type': 'application/json'}
 		fetch_errors = []
 		try:
-			response = request('GET', collections_url, '', headers)
+			response = request('GET', collections_url, '', headers)[0]
 		except BaseException as e:
 			fetch_errors.append(repr(e))
 
@@ -61,10 +64,9 @@ def enumerate_collections(uri, session_key, collection, app, app_list, global_sc
 		else:
 			raise Exception('Errors encountered when filtering collection list: ' + str(fetch_errors))
 
-def copy_collection(logger, source_uri, target_uri, app, collection, append):
-	url_tmpl_collection_download = '%(server_uri)s/servicesNS/%(owner)s/%(app)s/storage/collections/data/%(collection)s?limit=%(limit)s&skip=%(skip)s&output_mode=json'
+def copy_collection(logger, session_key, source_uri, target_uri, app, collection, append):
 	# Enumerate all of the collections in the app (if an app is selected)
-	collection_contents = download_collection(source_uri, app, collection)
+	collection_contents = download_collection(logger, source_uri, app, collection)
 
 	# Download the collection
 
@@ -75,8 +77,9 @@ def copy_collection(logger, source_uri, target_uri, app, collection, append):
 	# Upload the collection
 
 
-def download_collection(uri, app, collection):
+def download_collection(logger, uri, app, collection):
 	logger = setup_logging('kvst')
+	url_tmpl_collection_download = '%(server_uri)s/servicesNS/%(owner)s/%(app)s/storage/collections/data/%(collection)s?limit=%(limit)s&skip=%(skip)s&output_mode=json'
 	# Reset every iteration to remote splunk uri
 	headers = {
 		'Authorization': 'Splunk %s' % remote_session_key,
@@ -89,8 +92,8 @@ def download_collection(uri, app, collection):
 	message = None
 	limits_cfg = cli.getConfStanza('limits','kvstore')
 	maxrows = int(limits_cfg.get('max_rows_per_query'))
-	logger.debug('%s maxrows per query: %s', facility, str(maxrows))
-	logger.debug('%s Collection: %s', facility, collection)
+	#logger.debug('%s maxrows per query: %s', facility, str(maxrows))
+	#logger.debug('%s Collection: %s', facility, collection)
 
 	try:
 		cursor = 0

@@ -1,29 +1,29 @@
 [alert_actions/alert_kvstore]
-version = 8.0.4.1
-modtime = 1595361139.246805000
+version = 8.0.6
+modtime = 1603408524.762024000
 
 [kvstore_tools/backups]
-version = 8.0.4.1
-modtime = 1595361139.651376000
+version = 8.0.6
+modtime = 1603408525.136011000
 
 [limits/default]
 owner = jrmurray
-version = 8.0.3
-modtime = 1589991764.099687000
+version = 8.0.6
+modtime = 1603212955.568673000
 
 [limits/kvstore]
 owner = jrmurray
-version = 8.0.4.1
-modtime = 1595361140.303816000
+version = 8.0.6
+modtime = 1603408525.763805000
 
 [app/install/is_configured]
-version = 8.0.4.1
-modtime = 1595361142.038525000
+version = 8.0.6
+modtime = 1603408527.451715000
 
 [passwords/credential%3A%3Ajrmurray%3A]
 owner = jrmurray
-version = 8.0.4.1
-modtime = 1595361140.611387000
+version = 8.0.6
+modtime = 1603408526.058220000
 
 [views/kvstore_overview]
 version = 8.0.4.1
