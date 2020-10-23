@@ -9,6 +9,7 @@
 # Local content
 local/
 local.meta
+backups/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
