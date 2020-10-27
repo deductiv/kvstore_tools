@@ -15,7 +15,6 @@ import os
 import json
 import http.client, urllib.request, urllib.parse, urllib.error
 import time
-import roles
 import kv_common as kv
 from deductiv_helpers import request, setup_logger, eprint
 

@@ -15,10 +15,10 @@ from builtins import str
 from past.utils import old_div
 import sys, os
 import stat
+import json
 import time
 from datetime import datetime
 import glob
-import roles
 import kv_common as kv
 from deductiv_helpers import setup_logger, eprint
 
@@ -84,7 +84,6 @@ class KVStoreBackupCommand(GeneratingCommand):
 	def generate(self):
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
-			backup_cfg = cli.getConfStanza('kvstore_tools','backups')
 		except BaseException as e:
 			eprint("Could not read configuration: " + repr(e))
 		
@@ -99,20 +98,22 @@ class KVStoreBackupCommand(GeneratingCommand):
 
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
 
-		# Check permissions
-		required_role = "kv_admin"
-		active_user = self._metadata.searchinfo.username
-		if active_user in roles.get_role_users(self._metadata.searchinfo.session_key, required_role) or active_user == "admin":
-			logger.debug("User %s is authorized." % active_user)
-		else:
-			logger.error("User %s is unauthorized. Has the kv_admin role been granted?" % active_user)
-			yield({'Error': 'User {0} is unauthorized. Has the kv_admin role been granted?'.format(active_user) })
-			sys.exit(3)
-
-		batch_size = int(backup_cfg.get('backup_batch_size'))
+		batch_size = int(cfg.get('backup_batch_size'))
 		logger.debug("Batch size: %d rows" % batch_size)
 		session_key = self._metadata.searchinfo.session_key
 		splunkd_uri = self._metadata.searchinfo.splunkd_uri
+
+		# Check for permissions to run the command
+		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=session_key, method='GET')[1]
+		content = json.loads(content)
+		current_user = self._metadata.searchinfo.username
+		current_user_capabilities = content['entry'][0]['content']['capabilities']
+		if 'run_kvstore_backup' in current_user_capabilities or 'run_kvst_all' in current_user_capabilities:
+			logger.debug("User %s is authorized." % current_user)
+		else:
+			logger.error("User %s is unauthorized. Has the run_kvstore_backup capability been granted?" % current_user)
+			yield({'Error': 'User %s is unauthorized. Has the run_kvstore_backup capability been granted?' % current_user })
+			sys.exit(3)
 
 		# Sanitize input
 		if self.app:
@@ -126,7 +127,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 			# Get path from configuration
 			try:
 				# Break path out and re-join it so it's OS independent
-				default_path = backup_cfg.get('default_path').split('/')
+				default_path = cfg.get('default_path').split('/')
 				self.path = os.path.abspath(os.path.join(os.sep, *default_path))
 			except:
 				logger.critical("Unable to get backup path")
@@ -156,7 +157,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 			logger.debug('Compression: %s' % self.compression)
 		else:
 			try:
-				self.compression = backup_cfg.get('compression')
+				self.compression = cfg.get('compression')
 			except:
 				self.compression = False
 
@@ -188,9 +189,9 @@ class KVStoreBackupCommand(GeneratingCommand):
 
 		# Execute retention routine
 		max_age = 0
-		max_age = int(backup_cfg.get('retention_days'))
+		max_age = int(cfg.get('retention_days'))
 		max_size = 0
-		max_size = int(backup_cfg.get('retention_size')) * 1024 * 1024
+		max_size = int(cfg.get('retention_size')) * 1024 * 1024
 
 		if max_size > 0 or max_age > 0:
 			# Check the size of all *.json and *.json.gz files in the directory

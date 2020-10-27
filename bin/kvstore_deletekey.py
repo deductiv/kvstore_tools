@@ -19,7 +19,6 @@ import gzip
 import glob
 import re
 import logging
-import roles
 import kv_common as kv
 from deductiv_helpers import setup_logger, request, eprint
 

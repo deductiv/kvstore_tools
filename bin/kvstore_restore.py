@@ -19,7 +19,6 @@ import gzip
 import glob
 import re
 import logging
-import roles
 import kv_common as kv
 from deductiv_helpers import setup_logger, eprint
 
@@ -31,6 +30,7 @@ from splunk.clilib import cli_common as cli
 from splunklib.searchcommands import \
     dispatch, GeneratingCommand, Configuration, Option, validators
 import splunklib.client as client
+import splunk.rest as rest
 
 @Configuration()
 class KVStoreRestoreCommand(GeneratingCommand):
@@ -62,7 +62,6 @@ class KVStoreRestoreCommand(GeneratingCommand):
 	def generate(self):
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
-			backup_cfg = cli.getConfStanza('kvstore_tools','backups')
 		except BaseException as e:
 			eprint("Could not read configuration: " + repr(e))
 		
@@ -77,18 +76,20 @@ class KVStoreRestoreCommand(GeneratingCommand):
 
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
 
-		# Check permissions
-		required_role = "kv_admin"
-		active_user = self._metadata.searchinfo.username
-		if active_user in roles.get_role_users(self._metadata.searchinfo.session_key, required_role) or active_user == "admin":
-			logger.debug("User %s is authorized." % active_user)
-		else:
-			logger.critical("User %s is unauthorized. Has the kv_admin role been granted?" % active_user)
-			yield({'Error': 'User %s is unauthorized. Has the kv_admin role been granted?' % active_user })
-			sys.exit(3)
-
 		session_key = self._metadata.searchinfo.session_key
 		splunkd_uri = self._metadata.searchinfo.splunkd_uri
+
+		# Check for permissions to run the command
+		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=session_key, method='GET')[1]
+		content = json.loads(content)
+		current_user = self._metadata.searchinfo.username
+		current_user_capabilities = content['entry'][0]['content']['capabilities']
+		if 'run_kvstore_restore' in current_user_capabilities or 'run_kvst_all' in current_user_capabilities:
+			logger.debug("User %s is authorized." % current_user)
+		else:
+			logger.error("User %s is unauthorized. Has the run_kvstore_restore capability been granted?" % current_user)
+			yield({'Error': 'User %s is unauthorized. Has the run_kvstore_restore capability been granted?' % current_user })
+			sys.exit(3)
 
 		# Sanitize input
 		if self.filename:
@@ -107,7 +108,7 @@ class KVStoreRestoreCommand(GeneratingCommand):
 		backup_file_list = []
 
 		# Get the default path from the configuration
-		default_path_dirlist = backup_cfg.get('default_path').split('/')
+		default_path_dirlist = cfg.get('default_path').split('/')
 		default_path = os.path.abspath(os.path.join(os.sep, *default_path_dirlist))
 		# Replace environment variables
 		default_path = os.path.expandvars(default_path)

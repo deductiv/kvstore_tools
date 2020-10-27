@@ -1,5 +1,5 @@
 # ![App icon](static/appIcon.png) KV Store Tools Redux - Splunk App  
-Fork of [Gemini KV Store Tools](https://splunkbase.splunk.com/app/3536/), managed by [Deductiv](https://www.deductiv.net/)  
+Rewrite of [Gemini KV Store Tools](https://splunkbase.splunk.com/app/3536/), managed by [Deductiv](https://www.deductiv.net/)  
 
 ## Utilities for the Splunk App Key-Value Store
 
@@ -19,11 +19,11 @@ The KV Store Tools for Splunk app includes the following features:
 [1]: Deletes the collections from the target host before writing (unless otherwise specified).  
 
 * * *  
-## Command Usage
-* * *  
+## Command Usage  
 
 ### KV Store Backup
-This functionality is implemented through a generating search command.  Syntax:
+This functionality is implemented through a generating search command.  Syntax:  
+
     | kvstorebackup app="app_name" collection="collection_name" path="/data/backup/kvstore" global_scope="false"  
 
 The backup process will write one or more .json or .json.gz files (one for each collection).
@@ -40,11 +40,12 @@ The backup process will write one or more .json or .json.gz files (one for each 
 
 ### KV Store Restore
 This functionality is implemented through a generating search command.  Syntax:  
+
     | kvstorerestore filename="/backup/kvstore/app_name#collection_name#20170130*"  
 
 The restore process will delete the KV Store collection and overwrite it with the contents of the backup.
 
-Arguments:
+**Arguments**:
 
 - *(Optional)* filename: <string> - Specify the file to restore the data from.
 - *(Optional)* append: [true|false] - Specify whether or not to append records to the target KV Store collections. (Default: false - deletes the collection prior to restoring)
@@ -52,10 +53,11 @@ Arguments:
 Running the search command with no arguments will list existing backups in the default path.
 
 ### KV Store Create Foreign Key
-This functionality is implemented through a streaming search command.  Syntax (example):
+This functionality is implemented through a streaming search command.  Syntax (example):  
+
     search <events> | kvstorecreatefk collection="<collection1_name>" outputkeyfield="<key_field_name>" | outputlookup append=t <collection2_name>
 
-Arguments:
+**Arguments**:
 
 - *(Required)* collection: <string> - Specify the collection to create the new record within.  
 - *(Optional)* app: <string> - Specify the app to find the collection(s) within. (Default: current app)  
@@ -66,11 +68,12 @@ Arguments:
 
 ### KV Store Push
 This functionality is implemented through a generating search command.  Configure your remote Splunk credentials in the Setup page.  Syntax:  
-   | kvstorepull app="<app_name>" collection="<collection_name>" global_scope="[true|false]" append="[true|false]" target="<remote_host>"  
+
+    | kvstorepush app="<app_name>" collection="<collection_name>" global_scope="[true|false]" append="[true|false]" target="<remote_host>"  
 
 The replication process will delete the remote KV Store collection and overwrite it with the contents of the backup, unless append=true is set.
 
-Arguments:
+**Arguments**:
 
 - *(Required)* target: <string> - Specify the hostname to upload collections to.
 - *(Optional)* port: <integer> - Specify the target splunkd port on the remote host. (Default: 8089)
@@ -81,13 +84,14 @@ Arguments:
 
 ### KV Store Pull
 This functionality is implemented through a generating search command.  Requires setup of your remote Splunk credentials in the Setup page.  Syntax:  
-   | kvstorepull app="<app_name>" collection="<collection_name>" global_scope="[true|false]" append="[true|false]" source="<remote_host>"  
+
+    | kvstorepull app="<app_name>" collection="<collection_name>" global_scope="[true|false]" append="[true|false]" target="<remote_host>"  
 
 The replication process will delete the local KV Store collection and overwrite it with the contents of the backup, unless append=true is set.
 
-Arguments:
+**Arguments**:
 
-- *(Required)* source: <string> - Specify the hostname to download collections from.
+- *(Required)* target: <string> - Specify the hostname to download collections from.
 - *(Optional)* port: <integer> - Specify the target splunkd port on the remote host. (Default: 8089)
 - *(Optional)* app: <string> - Specify the app to find the collection(s) within. (Default: All)
 - *(Optional)* global_scope: [true|false] - Specify the whether or not to include all globally available collections. (Default: false)
@@ -96,22 +100,24 @@ Arguments:
 
 ### KV Store Delete Keys
 This functionality is implemented through a streaming search command.  Syntax (example):  
+
     | inputlookup lookup_name where domain="*splunk.com" | deletekeys collection="collection_name"  
 
 Deletes records from a KV Store collection based on _key value in search results
 
-Arguments:
+**Arguments**:
 
 - *(Optional)* app: <string> - Specify the app to find the collection within. (Default: All)
 - *(Required)* collection: <string> - Specify the collection to delete the data from.
 
 ### KV Store Delete Key
 This functionality is implemented through a generating search command.  Syntax:  
+
     | deletekey collection="collection_name" key="key_value"  
 
 Deletes a specific record from a KV Store collection based on _key value
 
-Arguments:
+**Arguments**:
 
 - *(Optional)* app: <string> - Specify the app to find the collection within. (Default: All)
 - *(Required)* collection: <string> - Specify the collection to delete the data from.

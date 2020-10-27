@@ -1,5 +1,19 @@
-# kv_collection_copy.py
+# kv_common.py
 # Functions for managing KV Store collection data
+
+# Copyright 2020 Deductiv Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
 # Version: 2.0.0
@@ -12,9 +26,14 @@ from datetime import datetime, timedelta
 import gzip
 import re
 import logging
-import splunk.rest as rest # pylint: disable=import-error
-from splunk.clilib import cli_common as cli # pylint: disable=import-error
 from deductiv_helpers import eprint, request, setup_logging
+
+# Add lib folders to import path
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
+# pylint: disable=import-error
+import splunk.rest as rest 
+from splunk.clilib import cli_common as cli 
+from splunksecrets import decrypt
 
 def get_server_apps(uri, session_key, app = None):
 	apps = []
@@ -81,8 +100,8 @@ def copy_collection(logger, source_session_key, source_uri, target_session_key, 
 	target_host = hostname_from_uri(target_uri)
 
 	# Download the collection
-	cfg = cli.getConfStanza('kvstore_tools','backups')
-	staging_dir = os.path.join(cfg["default_path"], 'staging')
+	cfg = cli.getConfStanza('kvstore_tools','settings')
+	staging_dir = os.path.expandvars(os.path.join(cfg["default_path"], 'staging'))
 
 	ts = time.time()
 	st = datetime.fromtimestamp(ts).strftime('%Y%m%d_%H%M%S')
@@ -90,6 +109,7 @@ def copy_collection(logger, source_session_key, source_uri, target_session_key, 
 	# Set the filename and location for the output (expanding environment variables)
 	output_filename = app + "#" + collection + "#" + st + ".json.gz"
 	output_file = os.path.join(staging_dir, output_filename)
+	output_file = os.path.expandvars(output_file)
 
 	# Create the directory recursively if it does not exist
 	os.makedirs(staging_dir, exist_ok=True)
@@ -173,7 +193,7 @@ def download_collection(logger, remote_uri, remote_session_key, app, collection,
 	total_record_count = 0
 
 	# Config options
-	cfg = cli.getConfStanza('kvstore_tools','backups')
+	cfg = cli.getConfStanza('kvstore_tools','settings')
 	batch_size = int(cfg.get('backup_batch_size'))
 	limits_cfg = cli.getConfStanza('limits','kvstore')
 	maxrows = int(limits_cfg.get('max_rows_per_query'))
@@ -372,58 +392,28 @@ def upload_collection(logger, remote_uri, remote_session_key, app, collection, f
 
 def hostname_from_uri(uri):
 	return re.sub(r'https?://([^:]+):.*', r'\1', uri)
-'''
-def resolve_roles(role, roles):
-	if role in roles:
-		inherited_roles = roles[role]
-	else:
-		inherited_roles = []
 
-	inherited_roles.append(role)
-	for inherited_role in inherited_roles:
-		if inherited_role != role:
-			new_roles = resolve_roles(inherited_role, roles)
-			if len(new_roles) > 0:
-				inherited_roles = inherited_roles + list(set(new_roles) - set(inherited_roles))
-
-	return inherited_roles
-
-def get_role_users(sessionKey, role):
-	system_roles = {}
-	# Get system roles
-	uri = '/services/admin/roles?output_mode=json&count=-1'
+def parse_custom_credentials(logger, config):
+	credentials = {}
 	try:
-		serverResponse, serverContent = rest.simpleRequest(uri, sessionKey=sessionKey, method='GET')
-		roles_json = json.loads(serverContent)
-		if len(roles_json['entry']) > 0:
-			for roles_entry in roles_json['entry']:
-				role_name = roles_entry["name"]
-				system_roles[role_name] = roles_entry["content"]["imported_roles"]
-		#logger.debug("Roles: {}".format(json.dumps(system_roles)))
-	except BaseException as e:
-		raise Exception("Error resolving roles: %s", repr(e))
+		# Read the splunk.secret file
+		with open(os.path.join(os.getenv('SPLUNK_HOME'), 'etc', 'auth', 'splunk.secret'), 'r') as ssfh:
+			splunk_secret = ssfh.readline()
 
-	# Get Splunk users
-	uri = '/services/admin/users?output_mode=json&count=-1'
-	try:
-		serverResponse, serverContent = rest.simpleRequest(uri, sessionKey=sessionKey, method='GET')
-	except BaseException as e:
-		raise Exception("Could not connect to download role list: %s", repr(e))
-		
-	entries = json.loads(serverContent)
-	role_users = []
-	if len(entries['entry']) > 0:
-		for entry in entries['entry']:
-			# Only add users with role_alert_manager role
-			user_primary_roles = []
-			for user_primary_role in entry['content']['roles']:
-				user_secondary_roles = resolve_roles(user_primary_role, system_roles)
-				user_primary_roles = user_primary_roles + list(set(user_secondary_roles) - set(user_primary_roles))
-			eprint("Roles of user '%s': %s" % (entry['name'], json.dumps(user_primary_roles)))
-
-			# Check if role is assigned to user
-			if role in entry['content']['roles'] or role in user_primary_roles:
-				role_users.append( entry['name'] )
-			eprint("Got list of splunk users for role: %s" % str(role_users))
-	return role_users
-'''
+		# list all credentials
+		for option in config:
+			if option[0:10] == 'credential':
+				logger.debug('option: ' + str(option))
+				config_value = config.get(option)
+				logger.debug(config_value)
+				try:
+					hostname, username, password = config.get(option).split(':')
+					credentials[hostname] = {}
+					credentials[hostname]['username'] = username
+					credentials[hostname]['password'] = decrypt(splunk_secret, password)
+				except:
+					# Blank or wrong format. Ignore.
+					pass
+		return credentials
+	except Exception as e:
+		raise Exception("Could not parse credentials from Splunk. Error: %s" % (str(e)))

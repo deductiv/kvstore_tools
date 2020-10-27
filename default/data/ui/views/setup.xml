@@ -9,51 +9,57 @@
         display: none !important;
     }
   </style>
+
+<h1>KV Store Tools Redux</h1>
 <form action="/en-US/splunkd/__raw/servicesNS/nobody/kvstore_tools/kvst/kvst_setup">
   <div class="form form-horizontal form-complex">
-    <h1>KV Store Tools Redux</h1>
-    <p id="status_message" class="result_message" style="display: none"></p>
-    <label class="control-label" for="hec_host">Destination Host</label>
-    <input class="controls controls-block controls_text" type="text" id="hec_host"/>
-    
-    <label class="control-label" for="hec_port">Destination Port (Default 8088)</label>
-    <input class="controls controls-block controls_text" type="text" id="hec_port"/>
-    
-    <label class="control-label" for="hec_token">Destination Host Token Value</label>
-    <input class="controls controls-block controls_text" type="text" id="hec_token"/>
-    
-    <label class="control-label" for="hec_ssl">SSL</label>
-    <input class="controls controls-block" type="checkbox" id="hec_ssl"/>
+
+    <p id="settings_message" class="result_message" style="display: none"></p>
+
+    <h2>General Settings</h2>
+    <label class="control-label" for="log_level">Log Level</label>
+    <select class="controls controls-block controls_text" style="width: 150px" id="log_level">
+      <option value="DEBUG">Debug</option>
+      <option value="INFO">Info</option>
+      <option value="WARNING">Warning</option>
+      <option value="ERROR">Error</option>
+      <option value="CRITICAL">Critical</option>
+    </select>
+
+    <h2>Backup &amp; Restore Settings</h2>
+    <p id="backups_message" class="result_message" style="display: none"></p>
   
-  </div>
-  <hr/>
-  <div class="form form-horizontal form-complex">
-    <h1>Amazon Web Services S3 Event Push (s3ep)</h1>
-    <p id="aws_message" class="result_message" style="display: none"></p>
+    <label class="control-label" for="default_path">Default KV Store Backup Path</label>
+    <input class="controls controls-block controls_text" type="text" id="default_path"/>
+
+    <label class="control-label" for="backup_batch_size">Backup batch size</label>
+    <input class="controls controls-block controls_text" type="text" id="backup_batch_size"/>
+
+    <label class="control-label" for="compression">Compress Collection Backups</label>
+    <input class="controls controls-block" type="checkbox" id="compression"/>
+
+    <label class="control-label" for="retention_days">Age-Based Retention (Days)</label>
+    <input class="controls controls-block controls_text" type="text" id="retention_days"/>
+
+    <label class="control-label" for="retention_size">Size-based Retention (MB)</label>
+    <input class="controls controls-block controls_text" type="text" id="retention_size"/>
+
+    <p class="control-label" style="width: 100%; text-align: left; margin-left: 245px;">Retention deletion takes place when running kvstorebackup.</p>
+
+    <h2>Remote Splunk Credentials - New/Edit</h2>
     
-    <label class="control-label" for="use_arn">Authenticate Using Assumed Role</label>
-    <input class="controls controls-block" type="checkbox" id="use_arn"/>
+    <label class="control-label" for="cred_hostname">Hostname</label>
+    <input class="controls controls-block controls_text" type="text" id="cred_hostname"/>
+
+    <label class="control-label" for="cred_username">Username</label>
+    <input class="controls controls-block controls_text" type="text" id="cred_username"/>
     
-    <label class="control-label" for="default_s3_bucket">Default S3 Bucket</label>
-    <input class="controls controls-block controls_text" type="text" id="default_s3_bucket"/>
-    
-    <h2>AWS Credentials - New/Edit</h2>
-    
-    <label class="control-label" for="cred_alias">Credential Name/Alias</label>
-    <input class="controls controls-block controls_text" type="text" id="cred_alias"/>
-    
-    <label class="control-label" for="cred_accesskey">Access Key ID</label>
-    <input class="controls controls-block controls_text" type="text" id="cred_accesskey"/>
-    
-    <label class="control-label" for="cred_secretkey">Secret Access Key</label>
-    <input class="controls controls-block controls_text" type="password" id="cred_secretkey"/>
-    
-    <label class="control-label" for="cred_default">Set as Default</label>
-    <input class="controls controls-block" type="checkbox" id="cred_default"/>
+    <label class="control-label" for="cred_password">Password</label>
+    <input class="controls controls-block controls_text" type="password" id="cred_password"/>
   </div>
 
   <div class="form form-horizontal form-complex">
-    <h2>AWS Credentials - Configured</h2>
+    <h2>Stored Splunk Instance Credentials</h2>
     <label class="control-label" for="cred_id">Configured Credentials</label>
     <select id="cred_id" size="10" style="height: 100%;"></select>
     <input type="hidden" name="cred_id_hidden" id="cred_id_hidden"/>
@@ -62,12 +68,8 @@
     <button type="button" id="credential_modify" class="btn credential-btn pull-left">Modify</button> <br/>
     <button type="button" id="credential_delete" class="btn credential-btn pull-left">Delete</button>
   </div>
-  <div>
-      <p id="credentials_footnote">* Default</p>
-  </div>
   <div class="modal-footer">
     <button type="button" id="setup_save" class="btn btn-primary custom-btn">Save</button>
-    <!--<input type="submit" class="btn btn-primary custom-btn" id="setup_save"/>-->
   </div>
 
 </form>

@@ -21,9 +21,8 @@ import glob
 import shutil
 import re
 from xml.dom import minidom
-import roles
 import kv_common as kv
-from deductiv_helpers import request, get_credentials, setup_logger, eprint
+from deductiv_helpers import request, setup_logger, eprint
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
@@ -40,7 +39,7 @@ import splunk.entity as entity
 @Configuration()
 class KVStorePushCommand(GeneratingCommand):
 	""" %(synopsis)
-	
+
 	##Syntax  
 
 	| kvstorepush app="app_name" collection="collection_name" global_scope="false" target="remotehost" targetport=8089  
@@ -90,7 +89,6 @@ class KVStorePushCommand(GeneratingCommand):
 	def generate(self):
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
-			backup_cfg = cli.getConfStanza('kvstore_tools','backups')
 		except BaseException as e:
 			eprint("Could not read configuration: " + repr(e))
 		
@@ -105,23 +103,25 @@ class KVStorePushCommand(GeneratingCommand):
 			exit(1)
 
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
-		
-		# Check permissions
-		required_role = "kv_admin"
-		active_user = self._metadata.searchinfo.username
-		if active_user in roles.get_role_users(self._metadata.searchinfo.session_key, required_role) or active_user == "admin":
-			logger.debug("User %s is authorized." % active_user)
-		else:
-			logger.error("User %s is unauthorized. Has the kv_admin role been granted?" % active_user)
-			yield({'Error': 'User %s is unauthorized. Has the kv_admin role been granted?' % active_user })
-			sys.exit(3)
 
-		batch_size = int(backup_cfg.get('backup_batch_size'))
+		batch_size = int(cfg.get('backup_batch_size'))
 		logger.debug("Batch size: %d rows" % batch_size)
 
 		local_session_key = self._metadata.searchinfo.session_key
 		splunkd_uri = self._metadata.searchinfo.splunkd_uri
 
+		# Check for permissions to run the command
+		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=local_session_key, method='GET')[1]
+		content = json.loads(content)
+		current_user = self._metadata.searchinfo.username
+		current_user_capabilities = content['entry'][0]['content']['capabilities']
+		if 'run_kvstore_push' in current_user_capabilities or 'run_kvst_all' in current_user_capabilities:
+			logger.debug("User %s is authorized." % current_user)
+		else:
+			logger.error("User %s is unauthorized. Has the run_kvstore_push capability been granted?" % current_user)
+			yield({'Error': 'User %s is unauthorized. Has the run_kvstore_push capability been granted?' % current_user })
+			sys.exit(3)
+		
 		# Sanitize input
 		if self.app:
 			logger.debug('App Context: %s' % self.app)
@@ -153,24 +153,21 @@ class KVStorePushCommand(GeneratingCommand):
 		try:
 			# Use the credential where the realm matches the target hostname
 			# Otherwise, use the last entry in the list
-			credential = None
-			credentials_list = get_credentials('kvstore_tools', local_session_key)
-			if len(credentials_list) > 0:
-				
-				for cred in credentials_list:
-					if 'realm' in list(cred.keys()):
-						if cred['realm'] == self.target:
-							credential = cred
+			credentials = kv.parse_custom_credentials(logger, cfg)
+			try:
+				credential = credentials[self.target]
+			except:
+				try:
+					hostname = self.target.split('.')[0]
+					credential = credentials[hostname]
+				except:
+					logger.critical("Could not get password for %s: %s" % (self.target, repr(e)))
+					print("Could not get password for %s: %s" % (self.target, repr(e)))
+					exit(1593)
 			
-				if credential is None:
-					credential = credentials_list[-1]
-
-				remote_user = credential['username']
-				remote_password = credential['password']
-			else:
-				logger.critical("No credentials found. Please configure them in the Setup dashboard.")
-				exit(2838)
-
+			remote_user = credential['username']
+			remote_password = credential['password']
+			
 		except BaseException as e:
 			logger.critical('Failed to get credentials for remote Splunk instance: %s' % repr(e), exc_info=True)
 			yield({'Error': 'Failed to get credentials for remote Splunk instance: %s' % repr(e)})

@@ -1,0 +1,65 @@
+<form>
+  <label>Collections</label>
+  <fieldset submitButton="false">
+    <input type="dropdown" token="app">
+      <label>App</label>
+      <choice value="*">All</choice>
+      <fieldForLabel>label</fieldForLabel>
+      <fieldForValue>label</fieldForValue>
+      <search>
+        <query>| rest /services/apps/local
+| search disabled=0 
+| table label
+| sort label
+| dedup label</query>
+        <earliest>0</earliest>
+        <latest></latest>
+      </search>
+      <default>*</default>
+    </input>
+    <input type="dropdown" token="scope" searchWhenChanged="true">
+      <label>Scope</label>
+      <choice value="*">N/A</choice>
+      <choice value="app">App</choice>
+      <choice value="global">Global</choice>
+      <choice value="system">System</choice>
+      <default>app</default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <table>
+        <search>
+          <query>
+            <![CDATA[
+| rest splunk_server=local services/apps/local 
+| search disabled=0 label="$app$"
+| dedup title 
+| fields title 
+| rename title As App
+| map search="| rest servicesNS/nobody/$$App$$/storage/collections/config" maxsearches=200 
+| rename title As Collection 
+| rename eai:acl.app As App 
+| dedup App, Collection
+| join type=left App [| rest splunk_server=local services/apps/local | rename title as App, label as Name | table App Name ]
+| search eai:acl.sharing="$scope$" OR (Name="$app$" eai:acl.sharing="app")
+| foreach field.* [eval Fields=if(isnull(Fields), if(isnotnull('<<FIELD>>'), "<<MATCHSTR>>", null()), if(isnotnull('<<FIELD>>'), Fields.", "."<<MATCHSTR>>", Fields))]
+| table App Name Collection Fields
+| sort App, Collection
+]]>
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">50</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+</form>

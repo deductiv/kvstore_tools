@@ -32,3 +32,15 @@ modtime = 1595356779.321152000
 [views/kvstore_tools_help]
 version = 8.0.4.1
 modtime = 1595358189.204417000
+
+[views/documentation]
+version = 8.0.6
+modtime = 1603487158.733571000
+
+[kvstore_tools/settings]
+version = 8.0.6
+modtime = 1603833593.989102000
+
+[views/collections]
+version = 8.0.6
+modtime = 1603835547.789514000

@@ -1,6 +1,5 @@
-<nav search_view="search" color="#5F666E">
+<nav search_view="search" color="#426E86">
   <view name="documentation" default='true' />
   <view name="setup" />
-  <view name="kvstore_overview" label="KVStore Overview"/>
-  <a href="/manager/kvstore_tools/apps/local/kvstore_tools/setup?action=edit">Setup</a>
+  <view name="collections" />
 </nav>
