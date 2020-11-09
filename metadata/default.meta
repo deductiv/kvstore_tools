@@ -4,3 +4,5 @@ export = system
 
 [views]
 export = none
+[savedsearches]
+export = none

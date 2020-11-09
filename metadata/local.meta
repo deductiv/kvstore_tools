@@ -39,8 +39,14 @@ modtime = 1603487158.733571000
 
 [kvstore_tools/settings]
 version = 8.0.6
-modtime = 1603833593.989102000
+modtime = 1604937449.752726000
 
 [views/collections]
 version = 8.0.6
-modtime = 1603835547.789514000
+modtime = 1604937358.345944000
+
+[savedsearches/Logs]
+export = none
+owner = jrmurray
+version = 8.0.6
+modtime = 1604937615.385405000

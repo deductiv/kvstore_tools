@@ -1,5 +1,5 @@
 <form>
-  <label>Collections</label>
+  <label>Collection Inventory</label>
   <fieldset submitButton="false">
     <input type="dropdown" token="app">
       <label>App</label>
