@@ -5,7 +5,7 @@
 # Pushes each result into the KV Store regardless of [Once/For Each Result] setting
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.0
+# Version: 2.0.1
 
 from __future__ import print_function
 from future import standard_library

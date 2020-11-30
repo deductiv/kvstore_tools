@@ -20,7 +20,7 @@
 # limitations under the License.
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.0
+# Version: 2.0.1
 
 from future import standard_library
 from io import open

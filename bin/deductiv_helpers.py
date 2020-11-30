@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.0
+# Version: 2.0.1
 
 from __future__ import print_function
 from builtins import str

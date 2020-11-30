@@ -5,7 +5,7 @@
 # Pushes collections from a local search head to a remote SH or SHC node KV store
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.0
+# Version: 2.0.1
 
 from future import standard_library
 standard_library.install_aliases()

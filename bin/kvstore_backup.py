@@ -5,7 +5,7 @@
 # Enumerates collections for an app and backs up JSON for each one
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.0
+# Version: 2.0.1
 
 from __future__ import division
 from __future__ import print_function
