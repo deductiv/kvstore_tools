@@ -311,20 +311,20 @@ def upload_collection(logger, remote_uri, remote_session_key, app, collection, f
 			fh = gzip.open(file_path, 'rb')
 
 		# Read the file data and parse with JSON loader
-		contents = json.loads(fh.read())
+		contents = json.loads(fh.read(), strict=False)
 	except BaseException as e:
 		# Account for a bug in prior versions where the record count could be wrong if "_key" was in the data and the ] would not get appended.
 		logger.error("Error reading file: %s\n\tAttempting modification (Append ']')." % str(e))
 		try:
 			# Reset the file cursor to 0
 			fh.seek(0)
-			contents = json.loads(fh.read() + "]")
+			contents = json.loads(fh.read() + "]", strict=False)
 		except BaseException:
 			logger.error("[Append ']'] Error reading modified json input.\n\tAttempting modification (Strip '[]')")
 			try:
 				# Reset the file cursor to 0
 				fh.seek(0)
-				contents = json.loads(fh.read().strip('[]'))
+				contents = json.loads(fh.read().strip('[]'), strict=False)
 			except BaseException:
 				logger.error("[Strip '[]'] Error reading modified json input for file %s.  Aborting." % file_path)
 				status = 'error'
@@ -369,11 +369,11 @@ def upload_collection(logger, remote_uri, remote_session_key, app, collection, f
 
 		# Upload the restored records to the server
 		try:
-			response, response_code = request('POST', record_url, json.dumps(batch), headers)
+			response, response_code = request('POST', record_url, json.dumps(batch), headers)		# pylint: disable=unused-variable
 			batch_number += 1
 			posted += len(batch)
 			if response_code != 200:
-				raise("Error %d when posting collection contents" % response_code)
+				raise Exception("Error %d when posting collection contents" % response_code)
 
 		except BaseException as e:
 			result = 'error'
