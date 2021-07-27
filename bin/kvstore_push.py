@@ -150,9 +150,9 @@ class KVStorePushCommand(GeneratingCommand):
 			self.targetport = '8089'
 
 		#split targets into list
-		targetList = re.split(', | |,', self.targets)
+		target_list = map(str.strip, self.targets.split(','))
 
-		for target in targetList:
+		for target in target_list:
 			# Get credentials
 			try:
 				# Use the credential where the realm matches the target hostname
