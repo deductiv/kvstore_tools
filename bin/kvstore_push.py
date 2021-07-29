@@ -42,7 +42,7 @@ class KVStorePushCommand(GeneratingCommand):
 
 	##Syntax  
 
-	| kvstorepush app="app_name" collection="collection_name" global_scope="false" targets="remotehost[, remotehost2, ...]" targetport=8089  
+	| kvstorepush app="app_name" collection="collection_name" global_scope="false" target="remotehost[, remotehost2, ...]" targetport=8089  
 
 	##Description  
 
@@ -74,9 +74,9 @@ class KVStorePushCommand(GeneratingCommand):
 			Description: Append to the existing results (true) or delete existing entries on the target prior to the data push (false)''',
 			require=False, validate=validators.Boolean())
 
-	targets = Option(
+	target = Option(
 		doc='''
-			Syntax: targets=<hostname>
+			Syntax: target=<hostname1, hostname2, ...>
 			Description: The list of hostnames to upload to. Credentials must be given via setup.''',
 			require=True)
 
@@ -149,24 +149,24 @@ class KVStorePushCommand(GeneratingCommand):
 		else:
 			self.targetport = '8089'
 
-		#split targets into list
-		target_list = map(str.strip, self.targets.split(','))
+		#split target into list
+		target_list = map(str.strip, self.target.split(','))
 
-		for target in target_list:
+		for host in target_list:
 			# Get credentials
 			try:
-				# Use the credential where the realm matches the target hostname
+				# Use the credential where the realm matches the host hostname
 				# Otherwise, use the last entry in the list
 				credentials = kv.parse_custom_credentials(logger, cfg)
 				try:
-					credential = credentials[target]
+					credential = credentials[host]
 				except:
 					try:
-						hostname = target.split('.')[0]
+						hostname = host.split('.')[0]
 						credential = credentials[hostname]
 					except:
-						logger.critical("Could not get password for %s: %s" % (target, repr(e)))
-						print("Could not get password for %s: %s" % (target, repr(e)))
+						logger.critical("Could not get password for %s: %s" % (host, repr(e)))
+						print("Could not get password for %s: %s" % (host, repr(e)))
 						exit(1593)
 				
 				remote_user = credential['username']
@@ -179,9 +179,9 @@ class KVStorePushCommand(GeneratingCommand):
 			
 			# Login to the remote host and get the session key
 			try:
-				remote_host = target
+				remote_host = host
 				remote_port = self.targetport
-				remote_uri = 'https://%s:%s' % (target, self.targetport)
+				remote_uri = 'https://%s:%s' % (host, self.targetport)
 				
 				remote_service = client.connect(
 					host = remote_host,
@@ -210,8 +210,8 @@ class KVStorePushCommand(GeneratingCommand):
 				try:
 					yield(kv.copy_collection(logger, local_session_key, splunkd_uri, remote_session_key, remote_uri, collection_app, collection_name, self.append))
 				except BaseException as e:
-					logger.critical('Failed to copy collections from %s to remote KV store: %s' % (target, repr(e)), exc_info=True)
-					yield({'Error': 'Failed to copy collections from %s to remote KV store: %s' % (target, repr(e)) } )
+					logger.critical('Failed to copy collections from %s to remote KV store: %s' % (host, repr(e)), exc_info=True)
+					yield({'Error': 'Failed to copy collections from %s to remote KV store: %s' % (host, repr(e)) } )
 					sys.exit(11)
 			
 dispatch(KVStorePushCommand, sys.argv, sys.stdin, sys.stdout, __name__)
