@@ -42,7 +42,7 @@ class KVStorePushCommand(GeneratingCommand):
 
 	##Syntax  
 
-	| kvstorepush app="app_name" collection="collection_name" global_scope="false" target="remotehost" targetport=8089  
+	| kvstorepush app="app_name" collection="collection_name" global_scope="false" target="remotehost[, remotehost2, ...]" targetport=8089  
 
 	##Description  
 
@@ -76,8 +76,8 @@ class KVStorePushCommand(GeneratingCommand):
 
 	target = Option(
 		doc='''
-			Syntax: target=<hostname>
-			Description: The hostname to upload to. Credentials must be given via setup.''',
+			Syntax: target=<hostname1, hostname2, ...>
+			Description: The list of hostnames to upload to. Credentials must be given via setup.''',
 			require=True)
 
 	targetport = Option(
@@ -149,65 +149,69 @@ class KVStorePushCommand(GeneratingCommand):
 		else:
 			self.targetport = '8089'
 
-		# Get credentials
-		try:
-			# Use the credential where the realm matches the target hostname
-			# Otherwise, use the last entry in the list
-			credentials = kv.parse_custom_credentials(logger, cfg)
+		#split target into list
+		target_list = map(str.strip, self.target.split(','))
+
+		for host in target_list:
+			# Get credentials
 			try:
-				credential = credentials[self.target]
-			except:
+				# Use the credential where the realm matches the host hostname
+				# Otherwise, use the last entry in the list
+				credentials = kv.parse_custom_credentials(logger, cfg)
 				try:
-					hostname = self.target.split('.')[0]
-					credential = credentials[hostname]
+					credential = credentials[host]
 				except:
-					logger.critical("Could not get password for %s: %s" % (self.target, repr(e)))
-					print("Could not get password for %s: %s" % (self.target, repr(e)))
-					exit(1593)
-			
-			remote_user = credential['username']
-			remote_password = credential['password']
-			
-		except BaseException as e:
-			logger.critical('Failed to get credentials for remote Splunk instance: %s' % repr(e), exc_info=True)
-			yield({'Error': 'Failed to get credentials for remote Splunk instance: %s' % repr(e)})
-			exit(7372)
-		
-		# Login to the remote host and get the session key
-		try:
-			remote_host = self.target
-			remote_port = self.targetport
-			remote_uri = 'https://%s:%s' % (self.target, self.targetport)
-			
-			remote_service = client.connect(
-				host = remote_host,
-				port = remote_port,
-				username = remote_user,
-				password = remote_password)
-			remote_service.login()
-
-			remote_session_key = remote_service.token.replace('Splunk ', '')
-			logger.debug('Remote Session_key: %s' % remote_session_key)
-			
-		except (urllib.error.HTTPError, BaseException) as e:
-			logger.exception('Failed to login on remote Splunk instance: %s' % repr(e))
-			yield({'Error': 'Failed to login on remote Splunk instance: %s' % repr(e)})
-			sys.exit(4424)
-
-		# Get the list of remote apps and collections
-		local_app_list = kv.get_server_apps(splunkd_uri, local_session_key, self.app)
-		local_collection_list = kv.get_app_collections(splunkd_uri, local_session_key, self.collection, self.app, local_app_list, self.global_scope)
-		logger.debug('Collections to push: %s' % str(local_collection_list))
-
-		for local_collection in local_collection_list:
-			# Extract the app and collection name from the array
-			collection_app = local_collection[0]
-			collection_name = local_collection[1]
-			try:
-				yield(kv.copy_collection(logger, local_session_key, splunkd_uri, remote_session_key, remote_uri, collection_app, collection_name, self.append))
+					try:
+						hostname = host.split('.')[0]
+						credential = credentials[hostname]
+					except:
+						logger.critical("Could not get password for %s: %s" % (host, repr(e)))
+						print("Could not get password for %s: %s" % (host, repr(e)))
+						exit(1593)
+				
+				remote_user = credential['username']
+				remote_password = credential['password']
+				
 			except BaseException as e:
-				logger.critical('Failed to copy collections from %s to remote KV store: %s' % (self.target, repr(e)), exc_info=True)
-				yield({'Error': 'Failed to copy collections from %s to remote KV store: %s' % (self.target, repr(e)) } )
-				sys.exit(11)
+				logger.critical('Failed to get credentials for remote Splunk instance: %s' % repr(e), exc_info=True)
+				yield({'Error': 'Failed to get credentials for remote Splunk instance: %s' % repr(e)})
+				exit(7372)
+			
+			# Login to the remote host and get the session key
+			try:
+				remote_host = host
+				remote_port = self.targetport
+				remote_uri = 'https://%s:%s' % (host, self.targetport)
+				
+				remote_service = client.connect(
+					host = remote_host,
+					port = remote_port,
+					username = remote_user,
+					password = remote_password)
+				remote_service.login()
+
+				remote_session_key = remote_service.token.replace('Splunk ', '')
+				logger.debug('Remote Session_key: %s' % remote_session_key)
+				
+			except (urllib.error.HTTPError, BaseException) as e:
+				logger.exception('Failed to login on remote Splunk instance: %s' % repr(e))
+				yield({'Error': 'Failed to login on remote Splunk instance: %s' % repr(e)})
+				sys.exit(4424)
+
+			# Get the list of remote apps and collections
+			local_app_list = kv.get_server_apps(splunkd_uri, local_session_key, self.app)
+			local_collection_list = kv.get_app_collections(splunkd_uri, local_session_key, self.collection, self.app, local_app_list, self.global_scope)
+			logger.debug('Collections to push: %s' % str(local_collection_list))
+
+			for local_collection in local_collection_list:
+				# Extract the app and collection name from the array
+				collection_app = local_collection[0]
+				collection_name = local_collection[1]
+				try:
+					yield(kv.copy_collection(logger, local_session_key, splunkd_uri, remote_session_key, remote_uri, collection_app, collection_name, self.append))
+				except BaseException as e:
+					logger.critical('Failed to copy collections from %s to remote KV store: %s' % (host, repr(e)), exc_info=True)
+					yield({'Error': 'Failed to copy collections from %s to remote KV store: %s' % (host, repr(e)) } )
+					sys.exit(11)
 			
 dispatch(KVStorePushCommand, sys.argv, sys.stdin, sys.stdout, __name__)
