@@ -91,13 +91,13 @@ This functionality is implemented through a streaming search command.  Syntax (e
 ### KV Store Push
 This functionality is implemented through a generating search command.  Configure your remote Splunk credentials in the Setup page.  Syntax:  
 
-    | kvstorepull app="<app_name>" collection="<collection_name>" global_scope="[true|false]" append="[true|false]" target="<remote_host>"  
+    | kvstorepush app="<app_name>" collection="<collection_name>" global_scope="[true|false]" append="[true|false]" target="<remote_hosts>"  
 
 The replication process will delete the remote KV Store collection and overwrite it with the contents of the backup, unless append=true is set.
 
 **Arguments**:
 
-- *(Required)* target: <string> - Specify the hostname to upload collections to.
+- *(Required)* target: <string> - Specify the hostnames in a comma separated list to upload collections to.
 - *(Optional)* port: <integer> - Specify the target splunkd port on the remote host. (Default: 8089)
 - *(Optional)* app: <string> - Specify the app to find the collection(s) within. (Default: All)
 - *(Optional)* global_scope: [true|false] - Specify the whether or not to include all globally available collections. (Default: false)
