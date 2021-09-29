@@ -1,4 +1,4 @@
-<dashboard stylesheet="application.css" script="convert_markdown.js">
+<dashboard stylesheet="application.css" script="convert_markdown.js" version="1.1">
   <label>Documentation</label>
   <row>
     <panel>
@@ -29,7 +29,7 @@ The KV Store Tools for Splunk app includes the following features:
 ### Generating Commands  
 - KV Store Backup: Backup KV Store collections to the file system on the search head.  
 - KV Store Restore: Restore KV Store collections from backup jobs^1^.  Lists all existing backups in the default path if no arguments are given.
-- KV Store Push: Copy KV Store collections from the local Splunk search head to a remote instance (SH/SHC)^1^.  
+- KV Store Push: Copy KV Store collections from the local Splunk search head to a remote instance or instance list (SH/SHC)^1^.  
 - KV Store Pull: Copy KV Store collections from a remote Splunk search head (SH/SHC) to the local instance^1^.  
 - Delete Key: Delete KV Store records from a collection based on user input.  
 ### Streaming Commands
