@@ -3,7 +3,7 @@
   <view name="setup" />
   <view name="collections" />
   <saved name="Logs" />
-  <a href="mailto:contact@deductiv.net?subject=KV Store Tools Support">Support</a>
-  <a href="https://github.com/deductiv/kvstore_tools">Project Home</a>
-  <a href="https://www.deductiv.net/">Deductiv Website</a>
+  <a href="mailto:contact@deductiv.net?subject=KV Store Tools Support" target="_blank">Support</a>
+  <a href="https://github.com/deductiv/kvstore_tools" target="_blank">Project Home</a>
+  <a href="https://www.deductiv.net/" target="_blank">Deductiv Website</a>
 </nav>
