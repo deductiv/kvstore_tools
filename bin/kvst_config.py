@@ -1,28 +1,13 @@
 #!/usr/bin/env python
 
-# Copyright 2020 Deductiv Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 # REST Endpoint for configuration dashboard
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.1
+# Version: 2.0.4
 
 import sys
 import os
 import json
-import re
 from deductiv_helpers import setup_logger, eprint, str2bool
 
 # Add lib folders to import path
@@ -74,7 +59,7 @@ class ConfigApp(admin.MConfigHandler):
 		content = json.loads(content)
 		current_user = content['entry'][0]['content']['username']
 		current_user_capabilities = content['entry'][0]['content']['capabilities']
-		if self.capabilityRead in current_user_capabilities:
+		if self.capabilityRead in current_user_capabilities or current_user == 'splunk-system-user':
 			logger.debug("User %s is authorized" % current_user)
 
 			confDict = self.readConf("kvstore_tools")
@@ -87,19 +72,7 @@ class ConfigApp(admin.MConfigHandler):
 								val = '1'
 							else:
 								val = '0'
-						'''
-						if key in ['default_path'] and val in [None, '', 'unset']:
-							val = os.path.join('$SPLUNK_HOME', 'etc', 'apps', 'kvstore_tools', 'backups')
-							# Windows wildcard support (works with $ but this is more clear).
-							if '\\' in val:
-								val = val.replace('$SPLUNK_HOME', '%SPLUNK_HOME%')
-						if key in ['backup_batch_size'] and val in [None, '']:
-							val = '50000'
-						if key in ['retention_days'] and val in [None, '']:
-							val = '0'
-						if key in ['retention_size'] and val in [None, '']:
-							val = '0'
-						'''
+						
 						confInfo[stanza].append(key, val)
 		else:
 			raise Exception("User %s is unauthorized. Has the read_kvst_config capability been granted?" % current_user)
@@ -129,7 +102,7 @@ class ConfigApp(admin.MConfigHandler):
 		content = json.loads(content)
 		current_user = content['entry'][0]['content']['username']
 		current_user_capabilities = content['entry'][0]['content']['capabilities']
-		if self.capabilityWrite in current_user_capabilities:
+		if self.capabilityWrite in current_user_capabilities or current_user == 'splunk-system-user':
 			logger.debug("User %s is authorized" % current_user)
 
 			# Read the splunk.secret file

@@ -5,7 +5,7 @@
 # Pushes each result into the KV Store regardless of [Once/For Each Result] setting
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.1
+# Version: 2.0.4
 
 from __future__ import print_function
 from future import standard_library
@@ -14,7 +14,6 @@ import sys
 import os
 import json
 import urllib.error, urllib.parse
-from datetime import datetime
 import gzip
 import csv
 import re

@@ -4,21 +4,15 @@
 # Deletes a specific record from a KV Store collection based on _key value
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.1
+# Version: 2.0.4
 
 from future import standard_library
 standard_library.install_aliases()
 from builtins import str
 import sys
 import os
-import json
 import urllib.parse
 import time
-#from datetime import datetime
-import gzip
-import glob
-import re
-import logging
 import kv_common as kv
 from deductiv_helpers import setup_logger, request, eprint
 

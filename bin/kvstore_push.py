@@ -5,22 +5,15 @@
 # Pushes collections from a local search head to a remote SH or SHC node KV store
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.1
+# Version: 2.0.4
 
 from future import standard_library
 standard_library.install_aliases()
 from builtins import str
 import sys
-import os, stat
+import os
 import json
-import http.client, urllib.error, urllib.parse
-import time
-from datetime import datetime
-import gzip
-import glob
-import shutil
-import re
-from xml.dom import minidom
+import urllib.error, urllib.parse
 import kv_common as kv
 from deductiv_helpers import request, setup_logger, eprint
 
@@ -42,7 +35,7 @@ class KVStorePushCommand(GeneratingCommand):
 
 	##Syntax  
 
-	| kvstorepush app="app_name" collection="collection_name" global_scope="false" target="remotehost[, remotehost2, ...]" targetport=8089  
+	| kvstorepush app="app_name" collection="collection_name" global_scope="false" target="remotehost[, remotehost2, ...]" append=[true|false] targetport=8089  
 
 	##Description  
 
@@ -115,7 +108,7 @@ class KVStorePushCommand(GeneratingCommand):
 		content = json.loads(content)
 		current_user = self._metadata.searchinfo.username
 		current_user_capabilities = content['entry'][0]['content']['capabilities']
-		if 'run_kvstore_push' in current_user_capabilities or 'run_kvst_all' in current_user_capabilities:
+		if 'run_kvstore_push' in current_user_capabilities or 'run_kvst_all' in current_user_capabilities or current_user == 'splunk-system-user':
 			logger.debug("User %s is authorized." % current_user)
 		else:
 			logger.error("User %s is unauthorized. Has the run_kvstore_push capability been granted?" % current_user)

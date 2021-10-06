@@ -1,5 +1,5 @@
-# ![App icon](static/appIcon.png) KV Store Tools Redux - Splunk App  
-Rewrite of [Gemini KV Store Tools](https://splunkbase.splunk.com/app/3536/), managed by [Deductiv](https://www.deductiv.net/)  
+# ![App icon](static/appIcon.png) KV Store Tools Redux - Splunk App by [Deductiv](https://www.deductiv.net/)  
+Rewrite of [Gemini KV Store Tools](https://splunkbase.splunk.com/app/3536/)
 
 ## Utilities for the Splunk App Key-Value Store
 
@@ -21,12 +21,11 @@ The KV Store Tools for Splunk app includes the following features:
 * * *  
 ## Command Usage  
 
-### KV Store Backup
+### KV Store Backup  
+Back up a KV Store collection to disk on the local node.  For search head clusters, it's recommended to have a shared volume (e.g. NFS) among all nodes for backups to reliably enforce the retention policy and the kvstorerestore command functionality.  The backup process will write one or more .json or .json.gz files (one for each collection).  
 This functionality is implemented through a generating search command.  Syntax:  
 
     | kvstorebackup app="app_name" collection="collection_name" path="/data/backup/kvstore" global_scope="false"  
-
-The backup process will write one or more .json or .json.gz files (one for each collection).
 
 **Arguments**:
 
@@ -38,35 +37,19 @@ The backup process will write one or more .json or .json.gz files (one for each 
 
 **Best Practice**: In a Search Head Cluster (SHC) environment, map a shared network drive to all members so that the backed-up collections are available to all of them.
 
-### KV Store Restore
+### KV Store Restore  
+Restore a KV Store collection backup file to the local node.  Uses the filename to determine the app name and collection to write the data to.  By default, the restore process will delete the KV Store collection and overwrite it with the contents of the backup.  Running the search command with no arguments will list existing backups in the default path.  
 This functionality is implemented through a generating search command.  Syntax:  
 
     | kvstorerestore filename="/backup/kvstore/app_name#collection_name#20170130*"  
-
-The restore process will delete the KV Store collection and overwrite it with the contents of the backup.
 
 **Arguments**:
 
 - *(Optional)* filename: <string> - Specify the file to restore the data from.
 - *(Optional)* append: [true|false] - Specify whether or not to append records to the target KV Store collections. (Default: false - deletes the collection prior to restoring)
 
-Running the search command with no arguments will list existing backups in the default path.
-
-### KV Store Create Foreign Key
-This functionality is implemented through a streaming search command.  Syntax (example):  
-
-    search <events> | kvstorecreatefk collection="<collection1_name>" outputkeyfield="<key_field_name>" | outputlookup append=t <collection2_name>
-
-**Arguments**:
-
-- *(Required)* collection: <string> - Specify the collection to create the new record within.  
-- *(Optional)* app: <string> - Specify the app to find the collection(s) within. (Default: current app)  
-- *(Optional)* outputkeyfield: <string> - Specify the output field to write the new key value to. (Default: _key)  
-- *(Optional)* staticvalues: <kvpairs> - Specify the static fields/values to write to the collection record.  (Default: None)  
-- *(Optional)* dynamicvalues: <kvpairs> - Specify the dynamic fields/values to write to the collection record (e.g. lookup_fieldname=event_field). Uses the first non-null field value in the search results.  (Default: None)  
-- *(Optional)* append: [true|false] - Specify whether or not to append records to the target KV Store collections. (Default: false - deletes the collection prior to migrating)  
-
-### KV Store Push
+### KV Store Push  
+Upload local KV Store collection(s) to one or more target instances.  
 This functionality is implemented through a generating search command.  Configure your remote Splunk credentials in the Setup page.  Syntax:  
 
     | kvstorepush app="<app_name>" collection="<collection_name>" global_scope="[true|false]" append="[true|false]" target="<remote_hosts>"  
@@ -83,6 +66,7 @@ The replication process will delete the remote KV Store collection and overwrite
 - *(Optional)* append: [true|false] - Specify whether or not to append records to the target KV Store collections. (Default: false - deletes the collection prior to migrating)
 
 ### KV Store Pull
+Download local KV Store collection(s) from another instance to the local one.  
 This functionality is implemented through a generating search command.  Requires setup of your remote Splunk credentials in the Setup page.  Syntax:  
 
     | kvstorepull app="<app_name>" collection="<collection_name>" global_scope="[true|false]" append="[true|false]" target="<remote_host>"  
@@ -98,12 +82,26 @@ The replication process will delete the local KV Store collection and overwrite 
 - *(Optional)* collection: <string> - Specify the collection to migrate. (Default: All)
 - *(Optional)* append: [true|false] - Specify whether or not to append records to the target KV Store collections. (Default: false - deletes the collection prior to migrating)
 
+### KV Store Create Foreign Key  
+Writes data from the search into a new KV store collection record and returns the record's _key value into the search as a new field.  The _key value becomes a foreign key reference in the search results, which can be written to a second lookup using outputlookup.  
+
+This functionality is implemented through a streaming search command.  Syntax (example):  
+
+    search <events> | kvstorecreatefk collection="<collection1_name>" outputkeyfield="<key_field_name>" | outputlookup append=t <collection2_name>
+
+**Arguments**:
+
+- *(Required)* collection: <string> - Specify the collection to create the new record within.  
+- *(Optional)* app: <string> - Specify the app to find the collection(s) within. (Default: current app)  
+- *(Optional)* outputkeyfield: <string> - Specify the output field to write the new key value to. (Default: _key)  
+- *(Optional)* outputvalues: <kvpairs> - Specify the fields/values to write to the collection record (e.g. lookup_fieldname=$event_field$). Uses the first non-null field value in the search results.  (Default: None)  
+- *(Optional)* append: [true|false] - Specify whether or not to append records to the target KV Store collections. (Default: false - deletes the collection prior to migrating)  
+
 ### KV Store Delete Keys
+Delete multiple KV Store collection records based on the _key value from the search result input.  
 This functionality is implemented through a streaming search command.  Syntax (example):  
 
     | inputlookup lookup_name where domain="*splunk.com" | deletekeys collection="collection_name"  
-
-Deletes records from a KV Store collection based on _key value in search results
 
 **Arguments**:
 
@@ -111,11 +109,10 @@ Deletes records from a KV Store collection based on _key value in search results
 - *(Required)* collection: <string> - Specify the collection to delete the data from.
 
 ### KV Store Delete Key
+Deletes a specific record from a KV Store collection based on _key value.  
 This functionality is implemented through a generating search command.  Syntax:  
 
     | deletekey collection="collection_name" key="key_value"  
-
-Deletes a specific record from a KV Store collection based on _key value
 
 **Arguments**:
 

@@ -108,7 +108,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 		content = json.loads(content)
 		current_user = self._metadata.searchinfo.username
 		current_user_capabilities = content['entry'][0]['content']['capabilities']
-		if 'run_kvstore_backup' in current_user_capabilities or 'run_kvst_all' in current_user_capabilities:
+		if 'run_kvstore_backup' in current_user_capabilities or 'run_kvst_all' in current_user_capabilities or current_user == 'splunk-system-user':
 			logger.debug("User %s is authorized." % current_user)
 		else:
 			logger.error("User %s is unauthorized. Has the run_kvstore_backup capability been granted?" % current_user)

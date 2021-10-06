@@ -5,16 +5,14 @@
 # Parameters are based on search results
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.1
+# Version: 2.0.4
 
 from future import standard_library
 standard_library.install_aliases()
 from builtins import str
 import sys
 import os
-import json
-import http.client, urllib.request, urllib.parse, urllib.error
-import time
+import urllib.request, urllib.parse, urllib.error
 import kv_common as kv
 from deductiv_helpers import request, setup_logger, eprint
 
