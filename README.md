@@ -49,8 +49,8 @@ This functionality is implemented through a generating search command.  Syntax:
 - *(Optional)* append: [true|false] - Specify whether or not to append records to the target KV Store collections. (Default: false - deletes the collection prior to restoring)
 
 ### KV Store Push  
-Upload local KV Store collection(s) to one or more target instances.  
-This functionality is implemented through a generating search command.  Configure your remote Splunk credentials in the Setup page.  Syntax:  
+Upload local KV Store collection(s) to one or more target instances.  Configure your remote Splunk credentials in the Setup page.  
+This functionality is implemented through a generating search command.  Syntax:  
 
     | kvstorepush app="<app_name>" collection="<collection_name>" global_scope="[true|false]" append="[true|false]" target="<remote_hosts>"  
 
@@ -66,8 +66,8 @@ The replication process will delete the remote KV Store collection and overwrite
 - *(Optional)* append: [true|false] - Specify whether or not to append records to the target KV Store collections. (Default: false - deletes the collection prior to migrating)
 
 ### KV Store Pull
-Download local KV Store collection(s) from another instance to the local one.  
-This functionality is implemented through a generating search command.  Requires setup of your remote Splunk credentials in the Setup page.  Syntax:  
+Download local KV Store collection(s) from another instance to the local one.  Configure your remote Splunk credentials in the Setup page.  
+This functionality is implemented through a generating search command.  Syntax:  
 
     | kvstorepull app="<app_name>" collection="<collection_name>" global_scope="[true|false]" append="[true|false]" target="<remote_host>"  
 
