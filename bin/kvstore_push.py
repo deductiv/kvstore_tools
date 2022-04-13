@@ -15,7 +15,7 @@ import os
 import json
 import urllib.error, urllib.parse
 import kv_common as kv
-from deductiv_helpers import request, setup_logger, eprint
+from deductiv_helpers import request, setup_logger, eprint, is_ipv4
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
@@ -152,19 +152,22 @@ class KVStorePushCommand(GeneratingCommand):
 				# Otherwise, use the last entry in the list
 				credentials = kv.parse_custom_credentials(logger, cfg)
 				try:
-					credential = credentials[host]
-				except:
-					try:
-						hostname = host.split('.')[0]
-						credential = credentials[hostname]
-					except:
-						logger.critical("Could not get password for %s: %s" % (host, repr(e)))
-						print("Could not get password for %s: %s" % (host, repr(e)))
-						exit(1593)
+					if self.target in list(credentials.keys()):
+						hostname = self.target
+					else:
+						if '.' in self.target and not is_ipv4(self.target):
+							hostname = self.target.split('.')[0]
+						else:
+							raise KeyError
+					credential = credentials[hostname]
 				
-				remote_user = credential['username']
-				remote_password = credential['password']
+					remote_user = credential['username']
+					remote_password = credential['password']
 				
+				except KeyError:
+					logger.critical("Could not get password for %s: Record not found" % hostname)
+					print("Could not get password for %s: Record not found" % hostname)
+					exit(1593)
 			except BaseException as e:
 				logger.critical('Failed to get credentials for remote Splunk instance: %s' % repr(e), exc_info=True)
 				yield({'Error': 'Failed to get credentials for remote Splunk instance: %s' % repr(e)})
@@ -184,11 +187,11 @@ class KVStorePushCommand(GeneratingCommand):
 				remote_service.login()
 
 				remote_session_key = remote_service.token.replace('Splunk ', '')
-				logger.debug('Remote Session_key: %s' % remote_session_key)
+				logger.debug('Remote session key: %s' % remote_session_key)
 				
 			except (urllib.error.HTTPError, BaseException) as e:
-				logger.exception('Failed to login on remote Splunk instance: %s' % repr(e))
-				yield({'Error': 'Failed to login on remote Splunk instance: %s' % repr(e)})
+				logger.exception('Failed to login to remote Splunk instance: %s' % repr(e))
+				yield({'Error': 'Failed to login to remote Splunk instance: %s' % repr(e)})
 				sys.exit(4424)
 
 			# Get the list of remote apps and collections
