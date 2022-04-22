@@ -111,6 +111,7 @@ class ConfigApp(admin.MConfigHandler):
 
 			config = self.callerArgs.data
 			new_config = {}
+
 			for k, v in list(config.items()):
 				if isinstance(v, list) and len(v) == 1:
 					v = v[0]
@@ -150,8 +151,18 @@ class ConfigApp(admin.MConfigHandler):
 				logger.debug("Writing configuration")
 			except BaseException as e:
 				logger.critical("Error parsing configuration: %s" % repr(e))
-			# Write the config stanza
-			self.writeConf('kvstore_tools', 'settings', new_config)
+			## Write the configuration via REST API
+			# Add the field values to an entity object
+			entity = en.getEntity('configs/conf-kvstore_tools',
+			   'settings', 
+			   namespace='kvstore_tools',
+			   owner='nobody',
+			   sessionKey=self.getSessionKey()
+			)
+			for k, v in list(new_config.items()):
+				entity.__setitem__(k, v)
+			# Apply the entity object to the configuration
+			en.setEntity(entity, sessionKey=self.getSessionKey())
 		else:
 			raise Exception("User %s is unauthorized. Has the write_kvst_config capability been granted?" % current_user)
 
