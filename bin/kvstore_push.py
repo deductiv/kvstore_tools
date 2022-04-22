@@ -160,7 +160,6 @@ class KVStorePushCommand(GeneratingCommand):
 						else:
 							raise KeyError
 					credential = credentials[hostname]
-				
 					remote_user = credential['username']
 					remote_password = credential['password']
 				
