@@ -45,7 +45,7 @@ def request(method, url, data, headers):
 	"""Helper function to fetch data from the given URL"""
 	# See if this is utf-8 encoded already
 	try:
-	    string.decode('utf-8')
+		data.decode('utf-8')
 	except:
 		try:
 			data = urllib.parse.urlencode(data).encode("utf-8")
@@ -120,3 +120,9 @@ def escape_quotes(string):
 	string = re.sub(r'(?<!\\)"', r'\"', string)
 	return string
 
+def is_ipv4(host):
+	r = "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$"
+	if(re.search(r, host)):
+		return True
+	else:
+		return False

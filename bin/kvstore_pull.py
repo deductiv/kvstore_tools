@@ -15,7 +15,7 @@ import os
 import json
 import urllib.error, urllib.parse
 import kv_common as kv
-from deductiv_helpers import request, setup_logger, eprint
+from deductiv_helpers import request, setup_logger, eprint, is_ipv4
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
@@ -148,15 +148,19 @@ class KVStorePullCommand(GeneratingCommand):
 			# Otherwise, use the last entry in the list
 			credentials = kv.parse_custom_credentials(logger, cfg)
 			try:
-				credential = credentials[self.target]
-			except:
-				try:
-					hostname = self.target.split('.')[0]
-					credential = credentials[hostname]
-				except:
-					logger.critical("Could not get password for %s: %s" % (self.target, repr(e)))
-					print("Could not get password for %s: %s" % (self.target, repr(e)))
-					exit(1593)
+				if self.target in list(credentials.keys()):
+					hostname = self.target
+				else:
+					if '.' in self.target and not is_ipv4(self.target):
+						hostname = self.target.split('.')[0]
+					else:
+						raise KeyError
+				credential = credentials[hostname]
+				
+			except KeyError:
+				logger.critical("Could not get password for %s: Record not found" % hostname)
+				print("Could not get password for %s: Record not found" % hostname)
+				exit(1593)
 			
 			remote_user = credential['username']
 			remote_password = credential['password']
