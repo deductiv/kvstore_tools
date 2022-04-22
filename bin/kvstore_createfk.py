@@ -6,7 +6,7 @@
 #  which can be written to a second collection (referencing the keys in the first)
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.4
+# Version: 2.0.8
 
 from future import standard_library
 from io import open
@@ -27,7 +27,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '
 # pylint: disable=import-error
 from splunk.clilib import cli_common as cli
 from splunklib.searchcommands import \
-    dispatch, StreamingCommand, Configuration, Option, validators
+    dispatch, StreamingCommand, Configuration, Option
 from splunklib.client import connect
 
 @Configuration(local=True)

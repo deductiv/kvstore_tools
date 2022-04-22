@@ -5,7 +5,7 @@
 # Enumerates collections for an app and backs up JSON for each one
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.1
+# Version: 2.0.8
 
 from __future__ import division
 from __future__ import print_function
@@ -29,7 +29,6 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '
 from splunk.clilib import cli_common as cli
 from splunklib.searchcommands import \
     dispatch, GeneratingCommand, Configuration, Option, validators
-from splunklib.client import connect
 import splunk.rest as rest
 
 @Configuration()

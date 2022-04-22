@@ -2,7 +2,7 @@
 # Functions for managing KV Store collection data
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.4
+# Version: 2.0.8
 
 from builtins import str
 import os, sys
@@ -16,8 +16,8 @@ from deductiv_helpers import eprint, request
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 # pylint: disable=import-error
-import splunk.rest as rest 
-from splunk.clilib import cli_common as cli 
+import splunk.rest as rest
+from splunk.clilib import cli_common as cli
 from splunksecrets import decrypt
 
 def get_server_apps(uri, session_key, app = None):

@@ -22,9 +22,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '
 # pylint: disable=import-error
 from splunk.clilib import cli_common as cli
 from splunklib.searchcommands import \
-	dispatch, GeneratingCommand, Configuration, Option, validators
-from splunklib.client import connect
-import splunk.rest as rest
+	dispatch, GeneratingCommand, Configuration, Option
 
 @Configuration()
 class KVStoreDeleteKeyCommand(GeneratingCommand):
