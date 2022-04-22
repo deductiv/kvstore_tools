@@ -12,7 +12,6 @@ standard_library.install_aliases()
 from builtins import str
 import sys
 import os
-#import urllib.request, urllib.parse, urllib.error
 import urllib.parse
 try:
 	import http.client as httplib
@@ -96,7 +95,6 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 						app = self.app,
 						collection = self.collection,
 						id = urllib.parse.quote(event_key_value, safe=''))
-					logger.debug("Delete url: " + delete_url)
 
 					try:
 						lock.acquire()

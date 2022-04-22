@@ -46,7 +46,6 @@ def get_credentials(app, session_key):
 
 # HTTP request wrapper
 def request(method, url, data, headers, conn=None):
-	logger = setup_logger('DEBUG', 'kvstore_deletekeys', '')
 	"""Helper function to fetch data from the given URL"""
 	# See if this is utf-8 encoded already
 	try:
@@ -57,7 +56,6 @@ def request(method, url, data, headers, conn=None):
 		except:
 			data = data.encode("utf-8")
 	url_tuple = urllib.parse.urlparse(url)
-	#server_host = url_tuple.netloc
 	if conn is None:
 		close_conn = True
 		if url_tuple.scheme == 'https':
@@ -66,37 +64,15 @@ def request(method, url, data, headers, conn=None):
 			conn = httplib.HTTPConnection(url_tuple.netloc)
 	else:
 		close_conn = False
-	'''
-	req = urllib.request.Request(url, data, headers)
-	req.get_method = lambda: method
-	res_txt = ""
-	res_code = "0"
-	try: 
-		res = urllib.request.urlopen(req)
-		res_txt = res.read()
-		res_code = res.getcode()
-	except urllib.error.HTTPError as e:
-		res_code = e.code
-		res_txt = e.read()
-		eprint("HTTP Error: " + str(res_txt))
-	except BaseException as e:
-		eprint("URL Request Error: " + str(e))
-		sys.exit(1)
-	'''
 	try:
-		logger.debug("url = " + url)
 		conn.request(method, url, data, headers)
 		response = conn.getresponse()
-		#response_status = "%s (%s)" % (response.status, response.reason)
 		response_data = response.read()
-		logger.debug("response = " + str(response_data))
 		response_status = response.status
 		if close_conn:
 			conn.close()
 		return response_data, response_status
-
 	except BaseException as e:
-		logger.exception(e)
 		eprint("URL Request Error: " + str(e))
 		sys.exit(1)
 
