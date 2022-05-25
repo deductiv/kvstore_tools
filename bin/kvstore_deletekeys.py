@@ -5,20 +5,24 @@
 # Parameters are based on search results
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.4
+# Version: 2.0.8
 
 from future import standard_library
 standard_library.install_aliases()
 from builtins import str
 import sys
 import os
-import urllib.request, urllib.parse, urllib.error
+import urllib.parse
+try:
+	import http.client as httplib
+except:
+	import httplib
 import kv_common as kv
 from deductiv_helpers import request, setup_logger, eprint
-
 # Multithreading
 from multiprocessing import Pool
 from multiprocessing.dummy import Pool as ThreadPool
+import threading
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
@@ -26,12 +30,14 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '
 # pylint: disable=import-error
 from splunk.clilib import cli_common as cli
 from splunklib.searchcommands import \
-    dispatch, StreamingCommand, Configuration, Option, validators
-from splunklib.client import connect
-import splunk.rest as rest
-import splunk
+    dispatch, StreamingCommand, Configuration, Option
 
-# sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+lock = threading.Lock()
+cfg = cli.getConfStanza('kvstore_tools','settings')
+# Facility info - prepended to log lines
+facility = os.path.basename(__file__)
+facility = os.path.splitext(facility)[0]
+logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
 
 @Configuration(local=True)
 class KVStoreDeleteKeysCommand(StreamingCommand):
@@ -59,77 +65,59 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 		 Description: Specify the collection name''',
 		require=True)
 
+	key_field = Option(
+		doc='''
+		 Syntax: key_field=<field_name>
+		 Description: Specify the field name''',
+		require=False)
+
+	if key_field is None:
+		key_field = "_key"
+
 	splunkd_uri = None
 	session_key = None
+	conn = None
 
 	def delete_key_from_event(self, delete_event):
-		try:
-			cfg = cli.getConfStanza('kvstore_tools','settings')
-		except BaseException as e:
-			eprint("Could not read configuration: " + repr(e))
-		
-		# Facility info - prepended to log lines
-		facility = os.path.basename(__file__)
-		facility = os.path.splitext(facility)[0]
-		try:
-			logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		except BaseException as e:
-			eprint("Could not create logger: " + repr(e))
-			print("Could not create logger: " + repr(e))
-			exit(1)
-
 		url_tmpl_delete = '%(server_uri)s/servicesNS/%(owner)s/%(app)s/storage/collections/data/%(collection)s/%(id)s?output_mode=json'
 		headers = {
 			'Authorization': 'Splunk %s' % self.session_key,
 			'Content-Type': 'application/json'}
-
-		for key, value in list(delete_event.items()):
-			delete_event[key] = value
-			if key == '_key' and len(value)>0:
-				logger.debug("Found %s (%s) in event" % (key, value))
+		logger.debug(str(delete_event))
+		if '_key' in list(delete_event.keys()):
+			event_key_value = delete_event[self.key_field]
+			if len(event_key_value) > 0:
+				logger.debug("Found key (%s) in event" % event_key_value)
 				try:
 					delete_url = url_tmpl_delete % dict(
 						server_uri = self.splunkd_uri,
 						owner = 'nobody',
 						app = self.app,
 						collection = self.collection,
-						id = urllib.parse.quote(value, safe=''))
-					logger.debug("Delete url: " + delete_url)
+						id = urllib.parse.quote(event_key_value, safe=''))
 
 					try:
-						response, response_code = request('DELETE', delete_url, '', headers)
-						logger.debug('Server response: %s' % response)
+						lock.acquire()
+						response, response_code = request('DELETE', delete_url, '', headers, self.conn)
+						logger.debug('Server response for key %s: %s' % (event_key_value, response))
+						lock.release()
 					except BaseException as e:
-						logger.error('ERROR Failed to delete key: %s', repr(e))
+						logger.error('ERROR Failed to delete key %s: %s', (event_key_value, repr(e)))
 
 					if response_code == 200:
-						logger.debug("Successfully deleted " + key)
+						logger.debug("Successfully deleted key " + event_key_value)
 						delete_event['delete_status'] = "success"
 						return delete_event
 					else:
-						logger.error("Error %d deleting %s: %s" % (response_code, key, response))
+						logger.error("Error %d deleting key %s: %s" % (response_code, event_key_value, response))
 						delete_event['delete_status'] = "error"
 						return delete_event
 				except BaseException as e:
-					logger.error("Error deleting %s: %s" % (key, repr(e)))
+					logger.error("Error deleting key %s: %s" % (event_key_value, repr(e)))
 					delete_event['delete_status'] = "error"
 					return delete_event
-
+			
 	def stream(self, events):
-		try:
-			cfg = cli.getConfStanza('kvstore_tools','settings')
-		except BaseException as e:
-			eprint("Could not read configuration: " + repr(e))
-		
-		# Facility info - prepended to log lines
-		facility = os.path.basename(__file__)
-		facility = os.path.splitext(facility)[0]
-		try:
-			logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		except BaseException as e:
-			eprint("Could not create logger: " + repr(e))
-			print("Could not create logger: " + repr(e))
-			exit(1)
 
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
 
@@ -147,6 +135,8 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 		
 		self.session_key = self._metadata.searchinfo.session_key
 		self.splunkd_uri = self._metadata.searchinfo.splunkd_uri
+		splunkd_url_tuple = urllib.parse.urlparse(self.splunkd_uri)
+		self.conn = httplib.HTTPSConnection(splunkd_url_tuple.netloc)
 
 		# Enumerate all app_list
 		app_list = kv.get_server_apps(self.splunkd_uri, self.session_key, self.app)

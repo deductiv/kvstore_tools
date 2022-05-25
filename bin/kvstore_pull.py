@@ -5,7 +5,7 @@
 # Pulls collections from a remote search head or SHC node to the local SH KV store
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.4
+# Version: 2.0.8
 
 from future import standard_library
 standard_library.install_aliases()
@@ -24,10 +24,8 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '
 from splunk.clilib import cli_common as cli
 from splunklib.searchcommands import \
 	dispatch, GeneratingCommand, Configuration, Option, validators
-from splunk.clilib import cli_common as cli
 import splunklib.client as client
 import splunk.rest as rest
-import splunk.entity as entity
 
 @Configuration()
 class KVStorePullCommand(GeneratingCommand):

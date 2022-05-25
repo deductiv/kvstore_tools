@@ -4,7 +4,7 @@
 # Enables restore of backed up KV Store from json or json.gz files
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.4
+# Version: 2.0.8
 
 from future import standard_library
 standard_library.install_aliases()
@@ -25,7 +25,6 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '
 from splunk.clilib import cli_common as cli
 from splunklib.searchcommands import \
     dispatch, GeneratingCommand, Configuration, Option, validators
-import splunklib.client as client
 import splunk.rest as rest
 
 @Configuration()
