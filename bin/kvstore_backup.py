@@ -21,15 +21,13 @@ from datetime import datetime
 import glob
 import kv_common as kv
 from deductiv_helpers import setup_logger, eprint
+from splunk.clilib import cli_common as cli
+import splunk.rest as rest
 
 # Add lib folders to import path
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
-# pylint: disable=import-error
-from splunk.clilib import cli_common as cli
 from splunklib.searchcommands import \
     dispatch, GeneratingCommand, Configuration, Option, validators
-import splunk.rest as rest
 
 @Configuration()
 class KVStoreBackupCommand(GeneratingCommand):

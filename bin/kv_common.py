@@ -4,20 +4,23 @@
 # Author: J.R. Murray <jr.murray@deductiv.net>
 # Version: 2.0.8
 
+from __future__ import print_function
 from builtins import str
-import os, sys
+from future import standard_library
+standard_library.install_aliases()
+import os
+import sys
 import json
 import time
 from datetime import datetime, timedelta
 import gzip
 import re
 from deductiv_helpers import eprint, request
+import splunk.rest as rest
+from splunk.clilib import cli_common as cli
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
-# pylint: disable=import-error
-import splunk.rest as rest
-from splunk.clilib import cli_common as cli
 from splunksecrets import decrypt
 
 def get_server_apps(uri, session_key, app = None):

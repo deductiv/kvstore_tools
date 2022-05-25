@@ -4,23 +4,22 @@
 # Deletes a specific record from a KV Store collection based on _key value
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.4
+# Version: 2.0.8
 
+from __future__ import print_function
+from builtins import str
 from future import standard_library
 standard_library.install_aliases()
-from builtins import str
 import sys
 import os
 import urllib.parse
 import time
 import kv_common as kv
 from deductiv_helpers import setup_logger, request, eprint
+from splunk.clilib import cli_common as cli
 
 # Add lib folders to import path
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
-# pylint: disable=import-error
-from splunk.clilib import cli_common as cli
 from splunklib.searchcommands import \
 	dispatch, GeneratingCommand, Configuration, Option
 
