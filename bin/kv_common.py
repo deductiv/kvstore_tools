@@ -4,20 +4,23 @@
 # Author: J.R. Murray <jr.murray@deductiv.net>
 # Version: 2.0.8
 
+from __future__ import print_function
 from builtins import str
-import os, sys
+from future import standard_library
+standard_library.install_aliases()
+import os
+import sys
 import json
 import time
 from datetime import datetime, timedelta
 import gzip
 import re
 from deductiv_helpers import eprint, request
+import splunk.rest as rest
+from splunk.clilib import cli_common as cli
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
-# pylint: disable=import-error
-import splunk.rest as rest
-from splunk.clilib import cli_common as cli
 from splunksecrets import decrypt
 
 def get_server_apps(uri, session_key, app = None):
@@ -104,40 +107,44 @@ def copy_collection(logger, source_session_key, source_uri, target_session_key, 
 		download_start_time = time.time()
 		result, message, record_count = download_collection(logger, source_uri, source_session_key, app, collection, output_file, True)
 		download_end_time = time.time()
-		if result == "success":
-			if not append:
-				# Delete the target collection prior to uploading
-				delete_start_time = time.time()
-				response_code = delete_collection(logger, target_uri, target_session_key, app, collection)
-				delete_end_time = time.time()
-				logger.debug("Response code for copy collection deletion request: %d" % response_code)
+		download_time = str(timedelta(seconds=(download_end_time - download_start_time)))
+		delete_start_time = 0
+		delete_end_time = 0
+		upload_start_time = 0
+		upload_end_time = 0
+		posted = 0
+		delete_time = None
+		upload_time = None
+		
+		if (result == "success" or result=="skipped") and not append:
+			# Delete the target collection prior to uploading
+			delete_start_time = time.time()
+			response_code = delete_collection(logger, target_uri, target_session_key, app, collection)
+			delete_end_time = time.time()
+			logger.debug("Response code for pre-upload collection deletion request: %d" % response_code)
 
+		if result == "success":
 			upload_start_time = time.time()
 			result, message, posted = upload_collection(logger, target_uri, target_session_key, app, collection, output_file)
 			upload_end_time = time.time()
-
-			download_time = str(timedelta(seconds=(download_end_time - download_start_time)))
-			try:
-				delete_time = str(timedelta(seconds=(delete_end_time - delete_start_time)))
-			except:
-				delete_time = None
-			
-			upload_time = str(timedelta(seconds=(upload_end_time - upload_start_time)))
-
-			if result == "success": 
-				# Delete the output file
-				if os.path.exists(output_file):
-					os.remove(output_file)
-					return { "app": app, "collection": collection, "result": result, 
-						"download_time": download_time, "delete_time": delete_time, 
-						"upload_time": upload_time, "download_count": record_count, "upload_count": posted}
-			else:
-				result = "error"
-				return { "app": app, "collection": collection, "result": result, 
-					"download_time": None, "delete_time": None, 
-					"upload_time": None, "download_count": record_count, "upload_count": posted }
+		elif result=="skipped":
+			result = "empty"
 		else:
-			raise Exception("Download not successful")
+			result = "error"
+
+		# Delete the output file
+		if os.path.exists(output_file):
+			os.remove(output_file)
+
+		if delete_start_time > 0:
+			delete_time = str(timedelta(seconds=(delete_end_time - delete_start_time)))
+		if upload_start_time > 0:
+			upload_time = str(timedelta(seconds=(upload_end_time - upload_start_time)))
+		
+		return { "app": app, "collection": collection, "result": result, 
+			"download_time": download_time, "delete_time": delete_time, 
+			"upload_time": upload_time, "download_count": record_count, "upload_count": posted}
+
 	except BaseException as e:
 		raise Exception("Error copying the collection from %s to %s: %s" % (source_host, target_host, repr(e)))
 

@@ -20,7 +20,7 @@ hr {
 </style>
 <!-- Copy/paste from README.md with some edits -->
 <div id="markdown" style="display:none"><![CDATA[
-# ![App icon](/static/app/kvstore_tools/appIcon.png) KV Store Tools Redux - Splunk App by [Deductiv](https://www.deductiv.net/)  
+# ![App icon](/static/app/kvstore_tools/appIcon.png) KV Store Tools Redux - Splunk App by Deductiv)  
 ## Utilities for the Splunk App Key-Value Store  
 Rewrite of [Gemini KV Store Tools](https://splunkbase.splunk.com/app/3536/)  
   

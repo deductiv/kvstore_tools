@@ -7,28 +7,23 @@
 # Author: J.R. Murray <jr.murray@deductiv.net>
 # Version: 2.0.8
 
+from __future__ import print_function
+from builtins import str
 from future import standard_library
 standard_library.install_aliases()
-from builtins import str
 import sys
 import os
 import urllib.parse
-try:
-	import http.client as httplib
-except:
-	import httplib
+import http.client as httplib
 import kv_common as kv
-from deductiv_helpers import request, setup_logger, eprint
-# Multithreading
 from multiprocessing import Pool
 from multiprocessing.dummy import Pool as ThreadPool
 import threading
+from deductiv_helpers import request, setup_logger
+from splunk.clilib import cli_common as cli
 
 # Add lib folders to import path
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
-# pylint: disable=import-error
-from splunk.clilib import cli_common as cli
 from splunklib.searchcommands import \
     dispatch, StreamingCommand, Configuration, Option
 
@@ -68,7 +63,7 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 	key_field = Option(
 		doc='''
 		 Syntax: key_field=<field_name>
-		 Description: Specify the field name''',
+		 Description: Specify the field name from the event''',
 		require=False)
 
 	if key_field is None:
@@ -83,39 +78,46 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 		headers = {
 			'Authorization': 'Splunk %s' % self.session_key,
 			'Content-Type': 'application/json'}
-		logger.debug(str(delete_event))
-		if '_key' in list(delete_event.keys()):
-			event_key_value = delete_event[self.key_field]
-			if len(event_key_value) > 0:
-				logger.debug("Found key (%s) in event" % event_key_value)
-				try:
-					delete_url = url_tmpl_delete % dict(
-						server_uri = self.splunkd_uri,
-						owner = 'nobody',
-						app = self.app,
-						collection = self.collection,
-						id = urllib.parse.quote(event_key_value, safe=''))
-
+		try:
+			event_dict = dict(delete_event)
+			# Throws an error using the native OrderedDict if key doesn't exist
+			# Use a copy instead
+			if self.key_field in list(event_dict.keys()): 
+				event_key_value = event_dict[self.key_field]
+				if len(event_key_value) > 0:
+					logger.debug("Found key (%s) in event" % event_key_value)
 					try:
-						lock.acquire()
-						response, response_code = request('DELETE', delete_url, '', headers, self.conn)
-						logger.debug('Server response for key %s: %s' % (event_key_value, response))
-						lock.release()
-					except BaseException as e:
-						logger.error('ERROR Failed to delete key %s: %s', (event_key_value, repr(e)))
+						delete_url = url_tmpl_delete % dict(
+							server_uri = self.splunkd_uri,
+							owner = 'nobody',
+							app = self.app,
+							collection = self.collection,
+							id = urllib.parse.quote(event_key_value, safe=''))
 
-					if response_code == 200:
-						logger.debug("Successfully deleted key " + event_key_value)
-						delete_event['delete_status'] = "success"
-						return delete_event
-					else:
-						logger.error("Error %d deleting key %s: %s" % (response_code, event_key_value, response))
+						try:
+							lock.acquire()
+							response, response_code = request('DELETE', delete_url, '', headers, self.conn)
+							logger.debug('Server response for key %s: %s' % (event_key_value, response))
+							lock.release()
+						except BaseException as e:
+							logger.error('ERROR Failed to delete key %s: %s', (event_key_value, repr(e)))
+
+						if response_code == 200:
+							logger.debug("Successfully deleted key " + event_key_value)
+							delete_event['delete_status'] = "success"
+							return delete_event
+						else:
+							logger.error("Error %d deleting key %s: %s" % (response_code, event_key_value, response))
+							delete_event['delete_status'] = "error"
+							return delete_event
+					except BaseException as e:
+						logger.error("Error deleting key %s: %s" % (event_key_value, repr(e)))
 						delete_event['delete_status'] = "error"
 						return delete_event
-				except BaseException as e:
-					logger.error("Error deleting key %s: %s" % (event_key_value, repr(e)))
-					delete_event['delete_status'] = "error"
-					return delete_event
+			else:
+				logger.error("Key field not found in event: %s", event_dict)
+		except BaseException as e:
+			logger.exception("Error processing event: %s", e)
 			
 	def stream(self, events):
 

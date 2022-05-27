@@ -7,21 +7,15 @@ from __future__ import print_function
 from builtins import str
 from future import standard_library
 standard_library.install_aliases()
-import sys, os
-import urllib.request, urllib.parse, urllib.error
-try:
-	import http.client as httplib
-except:
-	import httplib
+import sys
+import os
+import urllib.request
+import urllib.parse
+import urllib.error
 import re
 import logging
 import configparser
-
-# Add lib folders to import path
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
-
-# pylint: disable=import-error
+import http.client as httplib
 import splunk.entity as en
 
 def get_credentials(app, session_key):
@@ -50,7 +44,7 @@ def request(method, url, data, headers, conn=None):
 	# See if this is utf-8 encoded already
 	try:
 		data.decode('utf-8')
-	except:
+	except AttributeError:
 		try:
 			data = urllib.parse.urlencode(data).encode("utf-8")
 		except:

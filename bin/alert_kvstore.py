@@ -5,20 +5,22 @@
 # Pushes each result into the KV Store regardless of [Once/For Each Result] setting
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.4
+# Version: 2.0.8
 
 from __future__ import print_function
+from builtins import str
 from future import standard_library
 standard_library.install_aliases()
 import sys
 import os
 import json
-import urllib.error, urllib.parse
+import urllib.error
+import urllib.parse
 import gzip
 import csv
 import re
 import kv_common as kv
-from deductiv_helpers import eprint, request, str2bool, setup_logger, read_config
+from deductiv_helpers import request, str2bool, setup_logger, read_config
 
 # Examples:
 # http://docs.splunk.com/Documentation/Splunk/6.5.0/AdvancedDev/CustomAlertKVStoreExample

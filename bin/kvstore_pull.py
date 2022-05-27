@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#!/usr/bin/env python
 
 # KV Store Pull
 # Enables the download of remote collections to a local SH instance on a per-app basis
@@ -7,25 +8,24 @@
 # Author: J.R. Murray <jr.murray@deductiv.net>
 # Version: 2.0.8
 
+from __future__ import print_function
+from builtins import str
 from future import standard_library
 standard_library.install_aliases()
-from builtins import str
 import sys
 import os
 import json
 import urllib.error, urllib.parse
 import kv_common as kv
-from deductiv_helpers import request, setup_logger, eprint, is_ipv4
+from deductiv_helpers import setup_logger, eprint, is_ipv4
+from splunk.clilib import cli_common as cli
+import splunk.rest as rest
 
 # Add lib folders to import path
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
-# pylint: disable=import-error
-from splunk.clilib import cli_common as cli
+import splunklib.client as client
 from splunklib.searchcommands import \
 	dispatch, GeneratingCommand, Configuration, Option, validators
-import splunklib.client as client
-import splunk.rest as rest
 
 @Configuration()
 class KVStorePullCommand(GeneratingCommand):

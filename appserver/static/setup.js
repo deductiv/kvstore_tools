@@ -1,43 +1,11 @@
 /* jshint esversion: 6 */
 require([
-	"splunkjs/mvc",
-	"splunkjs/mvc/utils",
-	"splunkjs/mvc/tokenutils",
 	"underscore",
 	"jquery",
-	"splunkjs/mvc/simplesplunkview",
-	"models/SplunkDBase",
-	"splunkjs/mvc/sharedmodels",
-	"splunkjs/mvc/simplexml",
-	"splunkjs/mvc/tableview",
-	"splunkjs/mvc/chartview",
-	"splunkjs/mvc/searchmanager",
-	"splunkjs/mvc/dropdownview",
-	"splunkjs/mvc/textinputview",
-	"splunkjs/mvc/multidropdownview",
-	"splunk.util",
-	"splunkjs/mvc/simplexml/element/single",
-	"splunkjs/mvc/simpleform/formutils",
 	"splunkjs/mvc/simplexml/ready!"
 ], function(
-	mvc,
-	utils,
-	TokenUtils,
 	_, //underscore
 	$, //jquery
-	SimpleSplunkView,
-	SplunkDModel, //SplunkDBase
-	sharedModels, //sharedmodels
-	DashboardController, //simplexml
-	TableView,
-	ChartView,
-	SearchManager,
-	DropdownView,
-	TextInputView,
-	MultiDropdownView,
-	splunkUtil,
-	SingleElement,
-	FormUtils
 ) {
 	app = 'kvstore_tools';
 	
