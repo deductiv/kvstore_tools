@@ -14,14 +14,14 @@
     background-color: #426E86;
 }
 
-h1 {
+h1.kvst {
     color: var(--level1-color);
     clear: both;
     padding-top: 15px;
     padding-bottom: 25px;
     font-size: 24px !important;
 }
-h2 {
+h2.kvst {
     color: var(--level2-color);
     clear: both;
     padding-bottom: 15px;
@@ -32,11 +32,11 @@ h2 {
     font-size: 18px !important;
     font-weight: bold !important;
 }
-h3 {
+h3.kvst {
     color: var(--level3-color);
     font-size: 16px !important;
 }
-h4 {
+h4.kvst {
     color: var(--level4-color);
     font-size: 14px !important;
 }

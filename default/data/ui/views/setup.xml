@@ -10,13 +10,13 @@
     }
   </style>
 
-<h1>KV Store Tools Redux</h1>
+<h1 class="kvst">KV Store Tools Redux</h1>
 <form action="/en-US/splunkd/__raw/servicesNS/nobody/kvstore_tools/kvst/kvst_setup">
   <div class="form form-horizontal form-complex">
 
     <p id="settings_message" class="result_message" style="display: none"></p>
 
-    <h2>General Settings</h2>
+    <h2 class="kvst">General Settings</h2>
     <label class="control-label" for="log_level">Log Level</label>
     <select class="controls controls-block controls_text" style="width: 150px" id="log_level">
       <option value="DEBUG">Debug</option>
@@ -26,7 +26,7 @@
       <option value="CRITICAL">Critical</option>
     </select>
 
-    <h2>Backup &amp; Restore Settings</h2>
+    <h2 class="kvst">Backup &amp; Restore Settings</h2>
     <p id="backups_message" class="result_message" style="display: none"></p>
   
     <label class="control-label" for="default_path">Default KV Store Backup Path</label>
@@ -46,7 +46,7 @@
 
     <p class="control-label" style="width: 100%; text-align: left; margin-left: 245px;">Retention deletion takes place when running kvstorebackup.</p>
 
-    <h2>Remote Splunk Credentials - New/Edit</h2>
+    <h2 class="kvst">Remote Splunk Credentials - New/Edit</h2>
     
     <label class="control-label" for="cred_hostname">Hostname</label>
     <input class="controls controls-block controls_text" type="text" id="cred_hostname"/>
@@ -59,7 +59,7 @@
   </div>
 
   <div class="form form-horizontal form-complex">
-    <h2>Stored Splunk Instance Credentials</h2>
+    <h2 class="kvst">Stored Splunk Instance Credentials</h2>
     <label class="control-label" for="cred_id">Configured Credentials</label>
     <select id="cred_id" size="10" style="height: 100%;"></select>
     <input type="hidden" name="cred_id_hidden" id="cred_id_hidden"/>
