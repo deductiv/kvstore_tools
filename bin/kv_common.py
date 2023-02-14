@@ -29,7 +29,7 @@ def get_server_apps(uri, session_key, app = None):
 		apps.append(app)
 	else:
 		# Enumerate all remote apps
-		apps_uri = uri + '/services/apps/local?output_mode=json'
+		apps_uri = uri + '/services/apps/local?output_mode=json&count=0'
 		content = rest.simpleRequest(apps_uri, sessionKey=session_key, method='GET')[1]
 		content = json.loads(content)
 		for entry in content["entry"]:

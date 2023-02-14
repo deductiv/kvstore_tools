@@ -66,9 +66,6 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 		 Description: Specify the field name from the event''',
 		require=False)
 
-	if key_field is None:
-		key_field = "_key"
-
 	splunkd_uri = None
 	session_key = None
 	conn = None
@@ -134,6 +131,9 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 			logger.critical("No collection specified. Exiting.")
 			print("Error: No collection specified.")
 			exit(1)
+		
+		if self.key_field is None:
+			self.key_field = "_key"
 		
 		self.session_key = self._metadata.searchinfo.session_key
 		self.splunkd_uri = self._metadata.searchinfo.splunkd_uri
