@@ -2,7 +2,7 @@
 # Functions for managing KV Store collection data
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.8
+# Version: 2.0.9
 
 from __future__ import print_function
 from builtins import str

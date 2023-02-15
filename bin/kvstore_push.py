@@ -5,7 +5,7 @@
 # Pushes collections from a local search head to a remote SH or SHC node KV store
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.8
+# Version: 2.0.9
 
 from __future__ import print_function
 from builtins import str
@@ -17,7 +17,7 @@ import json
 import urllib.error
 import urllib.parse
 import kv_common as kv
-from deductiv_helpers import setup_logger, eprint, is_ipv4
+from deductiv_helpers import setup_logger, eprint, is_ipv4, search_console
 from splunk.clilib import cli_common as cli
 import splunk.rest as rest
 
@@ -81,18 +81,14 @@ class KVStorePushCommand(GeneratingCommand):
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
 		except BaseException as e:
-			eprint("Could not read configuration: " + repr(e))
+			self.write_error("Could not read configuration: " + repr(e))
+			exit(1)
 		
 		# Facility info - prepended to log lines
 		facility = os.path.basename(__file__)
 		facility = os.path.splitext(facility)[0]
-		try:
-			logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		except BaseException as e:
-			eprint("Could not create logger: " + repr(e))
-			print("Could not create logger: " + repr(e))
-			exit(1)
-
+		logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
+		ui = search_console(logger, self)
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
 
 		batch_size = int(cfg.get('backup_batch_size'))
@@ -109,9 +105,7 @@ class KVStorePushCommand(GeneratingCommand):
 		if 'run_kvstore_push' in current_user_capabilities or 'run_kvst_all' in current_user_capabilities or current_user == 'splunk-system-user':
 			logger.debug("User %s is authorized." % current_user)
 		else:
-			logger.error("User %s is unauthorized. Has the run_kvstore_push capability been granted?" % current_user)
-			yield({'Error': 'User %s is unauthorized. Has the run_kvstore_push capability been granted?' % current_user })
-			sys.exit(3)
+			ui.exit_error("User %s is unauthorized. Has the run_kvstore_push capability been granted?" % current_user)
 		
 		# Sanitize input
 		if self.app:
@@ -162,13 +156,9 @@ class KVStorePushCommand(GeneratingCommand):
 					remote_password = credential['password']
 				
 				except KeyError:
-					logger.critical("Could not get password for %s: Record not found" % hostname)
-					print("Could not get password for %s: Record not found" % hostname)
-					exit(1593)
+					ui.exit_error("Could not get password for %s: Record not found" % hostname)
 			except BaseException as e:
-				logger.critical('Failed to get credentials for remote Splunk instance: %s' % repr(e), exc_info=True)
-				yield({'Error': 'Failed to get credentials for remote Splunk instance: %s' % repr(e)})
-				exit(7372)
+				ui.exit_error('Failed to get credentials for remote Splunk instance: %s' % repr(e))
 			
 			# Login to the remote host and get the session key
 			try:
@@ -187,9 +177,7 @@ class KVStorePushCommand(GeneratingCommand):
 				logger.debug('Remote session key: %s' % remote_session_key)
 				
 			except (urllib.error.HTTPError, BaseException) as e:
-				logger.exception('Failed to login to remote Splunk instance: %s' % repr(e))
-				yield({'Error': 'Failed to login to remote Splunk instance: %s' % repr(e)})
-				sys.exit(4424)
+				ui.exit_error('Failed to login to remote Splunk instance: %s' % repr(e))
 
 			# Get the list of remote apps and collections
 			local_app_list = kv.get_server_apps(splunkd_uri, local_session_key, self.app)
@@ -203,8 +191,6 @@ class KVStorePushCommand(GeneratingCommand):
 				try:
 					yield(kv.copy_collection(logger, local_session_key, splunkd_uri, remote_session_key, remote_uri, collection_app, collection_name, self.append))
 				except BaseException as e:
-					logger.critical('Failed to copy collections from %s to remote KV store: %s' % (host, repr(e)), exc_info=True)
-					yield({'Error': 'Failed to copy collections from %s to remote KV store: %s' % (host, repr(e)) } )
-					sys.exit(11)
+					ui.exit_error('Failed to copy collections from %s to remote KV store: %s' % (host, repr(e)))
 			
 dispatch(KVStorePushCommand, sys.argv, sys.stdin, sys.stdout, __name__)

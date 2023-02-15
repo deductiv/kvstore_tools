@@ -5,7 +5,7 @@
 # Pushes each result into the KV Store regardless of [Once/For Each Result] setting
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.8
+# Version: 2.0.9
 
 from __future__ import print_function
 from builtins import str
@@ -89,7 +89,7 @@ if len(sys.argv) > 1:
 									for val in column.split(";"):
 										try:
 											if val != '$$':
-												matches = re.match(r'\$(.+)\$', val)
+												matches = re.match(r'\$(.+)\$', val, re.S)
 												values.append(matches.group(1))
 										except:
 											continue

@@ -4,7 +4,7 @@
 # Deletes a specific record from a KV Store collection based on _key value
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.8
+# Version: 2.0.9
 
 from __future__ import print_function
 from builtins import str
@@ -15,7 +15,7 @@ import os
 import urllib.parse
 import time
 import kv_common as kv
-from deductiv_helpers import setup_logger, request, eprint
+from deductiv_helpers import setup_logger, request, search_console
 from splunk.clilib import cli_common as cli
 
 # Add lib folders to import path
@@ -59,18 +59,14 @@ class KVStoreDeleteKeyCommand(GeneratingCommand):
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
 		except BaseException as e:
-			eprint("Could not read configuration: " + repr(e))
+			self.write_error("Could not read configuration: " + repr(e))
+			exit(1)
 		
 		# Facility info - prepended to log lines
 		facility = os.path.basename(__file__)
 		facility = os.path.splitext(facility)[0]
-		try:
-			logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		except BaseException as e:
-			eprint("Could not create logger: " + repr(e))
-			print("Could not create logger: " + repr(e))
-			exit(1)
-
+		logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
+		ui = search_console(logger, self)
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
 		
 		session_key = self._metadata.searchinfo.session_key
@@ -84,16 +80,12 @@ class KVStoreDeleteKeyCommand(GeneratingCommand):
 		if self.collection:
 			logger.debug('Collection: %s' % self.collection)
 		else:
-			logger.critical("No collection specified. Exiting.")
-			print("Error: No collection specified.")
-			exit(1)
+			ui.exit_error("No collection specified. Exiting.")
 		
 		if self.key:
 			logger.debug('Key ID: %s' % self.collection)
 		else:
-			logger.critical("No key value specified. Exiting.")
-			print("Error: No key value specified.")
-			exit(1)
+			ui.exit_error("No key value specified. Exiting.")
 
 		headers = {
 			'Authorization': 'Splunk %s' % session_key,
@@ -122,12 +114,10 @@ class KVStoreDeleteKeyCommand(GeneratingCommand):
 						pass
 					logger.debug("Collection found: {0} in app {1}".format(self.collection, self.app))
 			if not collection_present:
-				logger.critical("KVStore collection %s not found within app %s" % (self.collection, self.app))
-				exit(1)
+				ui.exit_error("KVStore collection %s not found within app %s" % (self.collection, self.app))
 
 		except BaseException as e:
-			logger.critical('Error enumerating collections: ' + str(e))
-			exit(1)
+			ui.exit_error('Error enumerating collections: ' + str(e))
 
 		url_tmpl_delete = '%(server_uri)s/servicesNS/%(owner)s/%(app)s/storage/collections/data/%(collection)s/%(id)s?output_mode=json'
 		try:

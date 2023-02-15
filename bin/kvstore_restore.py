@@ -4,7 +4,7 @@
 # Enables restore of backed up KV Store from json or json.gz files
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.8
+# Version: 2.0.9
 
 from __future__ import print_function
 from builtins import str
@@ -17,7 +17,7 @@ import time
 import glob
 import re
 import kv_common as kv
-from deductiv_helpers import setup_logger, eprint
+from deductiv_helpers import setup_logger, eprint, search_console
 from splunk.clilib import cli_common as cli
 import splunk.rest as rest
 
@@ -57,17 +57,14 @@ class KVStoreRestoreCommand(GeneratingCommand):
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
 		except BaseException as e:
-			eprint("Could not read configuration: " + repr(e))
+			self.write_error("Could not read configuration: " + repr(e))
+			exit(1)
 		
 		# Facility info - prepended to log lines
 		facility = os.path.basename(__file__)
 		facility = os.path.splitext(facility)[0]
-		try:
-			logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		except BaseException as e:
-			eprint("Could not create logger: " + repr(e))
-			exit(1)
-
+		logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
+		ui = search_console(logger, self)
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
 
 		session_key = self._metadata.searchinfo.session_key
@@ -81,10 +78,8 @@ class KVStoreRestoreCommand(GeneratingCommand):
 		if 'run_kvstore_restore' in current_user_capabilities or 'run_kvst_all' in current_user_capabilities or current_user == 'splunk-system-user':
 			logger.debug("User %s is authorized." % current_user)
 		else:
-			logger.error("User %s is unauthorized. Has the run_kvstore_restore capability been granted?" % current_user)
-			yield({'Error': 'User %s is unauthorized. Has the run_kvstore_restore capability been granted?' % current_user })
-			sys.exit(3)
-
+			ui.exit_error("User %s is unauthorized. Has the run_kvstore_restore capability been granted?" % current_user)
+		
 		# Sanitize input
 		if self.filename:
 			logger.debug('Restore filename: %s' % self.filename)
@@ -119,8 +114,7 @@ class KVStoreRestoreCommand(GeneratingCommand):
 					backup_file_list.append(name)
 
 			if len(backup_file_list) == 0:
-				logger.critical("No matching files: %s" % self.filename)
-				sys.exit(1)
+				ui.exit_error("No matching files: %s" % self.filename)
 		else:
 			logger.debug('No wildcard string found in %s' % self.filename)
 			if os.path.isfile(self.filename):
@@ -128,8 +122,7 @@ class KVStoreRestoreCommand(GeneratingCommand):
 			elif os.path.isfile(os.path.join(default_path, self.filename)):
 				backup_file_list.append(os.path.join(default_path, self.filename))
 			else:
-				logger.critical("File does not exist: %s" % self.filename)
-				sys.exit(1)
+				ui.exit_error("File does not exist: %s" % self.filename)
 
 		deleted_collections = []
 
@@ -143,9 +136,7 @@ class KVStoreRestoreCommand(GeneratingCommand):
 				file_param = matches.group(2)
 				name_split = file_param.split('#')
 			except BaseException as e:
-				logger.critical('Invalid filename: %s\n\t%s' % (name, repr(e)))
-				yield({'Error': 'Invalid filename: %s' % name})
-				sys.exit(1)
+				ui.exit_error('Invalid filename: %s\n\t%s' % (name, repr(e)))
 
 			# Open the file if it's a supported format
 			if (name.endswith('.json') or name.endswith('.json.gz')) and len(name_split)==3:
@@ -166,9 +157,7 @@ class KVStoreRestoreCommand(GeneratingCommand):
 								kv.delete_collection(logger, splunkd_uri, session_key, file_app, file_collection)
 								deleted_collections.append(collection_id)
 						except BaseException as e:
-							logger.critical(repr(e), exc_info=True)
-							yield({'Error': 'Failed to delete collection %s/%s: %s' % (file_app, file_collection, repr(e))})
-							sys.exit(4)
+							ui.exit_error('Failed to delete collection %s/%s: %s' % (file_app, file_collection, repr(e)))
 					
 					# Upload the collection to the KV Store REST API
 					try:

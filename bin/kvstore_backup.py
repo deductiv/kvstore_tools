@@ -5,7 +5,7 @@
 # Enumerates collections for an app and backs up JSON for each one
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.8
+# Version: 2.0.9
 
 from __future__ import division
 from __future__ import print_function
@@ -20,7 +20,7 @@ import time
 from datetime import datetime
 import glob
 import kv_common as kv
-from deductiv_helpers import setup_logger, eprint
+from deductiv_helpers import setup_logger, eprint, search_console
 from splunk.clilib import cli_common as cli
 import splunk.rest as rest
 
@@ -82,17 +82,14 @@ class KVStoreBackupCommand(GeneratingCommand):
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
 		except BaseException as e:
-			eprint("Could not read configuration: " + repr(e))
+			self.write_error("Could not read configuration: " + repr(e))
+			exit(1)
 		
 		# Facility info - prepended to log lines
 		facility = os.path.basename(__file__)
 		facility = os.path.splitext(facility)[0]
-		try:
-			logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		except BaseException as e:
-			eprint("Could not create logger: " + repr(e))
-			exit(1)
-
+		logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
+		ui = search_console(logger, self)
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
 
 		batch_size = int(cfg.get('backup_batch_size'))
@@ -108,9 +105,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 		if 'run_kvstore_backup' in current_user_capabilities or 'run_kvst_all' in current_user_capabilities or current_user == 'splunk-system-user':
 			logger.debug("User %s is authorized." % current_user)
 		else:
-			logger.error("User %s is unauthorized. Has the run_kvstore_backup capability been granted?" % current_user)
-			yield({'Error': 'User %s is unauthorized. Has the run_kvstore_backup capability been granted?' % current_user })
-			sys.exit(3)
+			ui.exit_error("User %s is unauthorized. Has the run_kvstore_backup capability been granted?" % current_user)
 
 		# Sanitize input
 		if self.app:
@@ -127,18 +122,14 @@ class KVStoreBackupCommand(GeneratingCommand):
 				default_path = cfg.get('default_path').split('/')
 				self.path = os.path.abspath(os.path.join(os.sep, *default_path))
 			except:
-				logger.critical("Unable to get backup path")
-				yield({'Error': "Path not provided in search arguments and default path is not set."})
-				sys.exit(1)
-
+				ui.exit_error("Unable to get backup path. Path not provided in search arguments and default path is not set.")
+		
 		# Replace environment variables
 		self.path = os.path.expandvars(self.path)
 		self.path = self.path.replace('//', '/')
 		logger.debug('Backup path: %s' % self.path)
 		if not os.path.isdir(self.path):
-			logger.critical("Path does not exist: {0}".format(self.path))
-			yield({'Error': "Path does not exist: {0}".format(self.path)})
-			sys.exit(1)
+			ui.exit_error("Path does not exist: {0}".format(self.path))
 
 		if self.collection:
 			logger.debug('Collection: %s' % self.collection)
