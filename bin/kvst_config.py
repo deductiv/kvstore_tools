@@ -3,7 +3,7 @@
 # REST Endpoint for configuration dashboard
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.8
+# Version: 2.0.9
 
 from __future__ import print_function
 from builtins import str
@@ -57,7 +57,7 @@ class ConfigApp(admin.MConfigHandler):
 		
 		# Check for permissions to read the configuration
 		session_key = self.getSessionKey()
-		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=session_key, method='GET')[1]
+		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=session_key)[1]
 		content = json.loads(content)
 		current_user = content['entry'][0]['content']['username']
 		current_user_capabilities = content['entry'][0]['content']['capabilities']
@@ -100,7 +100,7 @@ class ConfigApp(admin.MConfigHandler):
 
 		# Check for permissions to read the configuration
 		session_key = self.getSessionKey()
-		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=session_key, method='GET')[1]
+		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=session_key)[1]
 		content = json.loads(content)
 		current_user = content['entry'][0]['content']['username']
 		current_user_capabilities = content['entry'][0]['content']['capabilities']

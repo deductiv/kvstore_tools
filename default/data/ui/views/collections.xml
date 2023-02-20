@@ -7,7 +7,7 @@
       <fieldForLabel>label</fieldForLabel>
       <fieldForValue>label</fieldForValue>
       <search>
-        <query>| rest /services/apps/local
+        <query>| rest splunk_server=local /services/apps/local
 | search disabled=0 
 | table label
 | sort label

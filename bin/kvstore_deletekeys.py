@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-# KV Store Collection Record Deleter
+# KV Store Collection Bulk Record Deleter
 # Deletes records from a KV Store collection based on _key value in search results
 # Parameters are based on search results
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.8
+# Version: 2.0.9
 
 from __future__ import print_function
 from builtins import str
@@ -19,7 +19,7 @@ import kv_common as kv
 from multiprocessing import Pool
 from multiprocessing.dummy import Pool as ThreadPool
 import threading
-from deductiv_helpers import request, setup_logger
+from deductiv_helpers import request, setup_logger, search_console
 from splunk.clilib import cli_common as cli
 
 # Add lib folders to import path
@@ -65,9 +65,6 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 		 Syntax: key_field=<field_name>
 		 Description: Specify the field name from the event''',
 		require=False)
-
-	if key_field is None:
-		key_field = "_key"
 
 	splunkd_uri = None
 	session_key = None
@@ -120,7 +117,7 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 			logger.exception("Error processing event: %s", e)
 			
 	def stream(self, events):
-
+		ui = search_console(logger, self)
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
 
 		if self.app:
@@ -131,9 +128,10 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 		if self.collection:
 			logger.debug('Collection: %s' % self.collection)
 		else:
-			logger.critical("No collection specified. Exiting.")
-			print("Error: No collection specified.")
-			exit(1)
+			ui.exit_error("No collection specified. Exiting.")
+		
+		if self.key_field is None:
+			self.key_field = "_key"
 		
 		self.session_key = self._metadata.searchinfo.session_key
 		self.splunkd_uri = self._metadata.searchinfo.splunkd_uri
@@ -162,12 +160,10 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 						pass
 					logger.debug("Collection {0} found in app {1}".format(self.collection, self.app))
 			if not collection_present:
-				logger.critical("KVStore collection %s/%s not found" % (self.app, self.collection))
-				exit(1)
+				ui.exit_error("KVStore collection %s/%s not found" % (self.app, self.collection))
 
 		except BaseException as e:
-			logger.critical('Error enumerating collections: %s' % repr(e))
-			exit(1)
+			ui.exit_error('Error enumerating collections: %s' % repr(e))
 
 		# Make a Pool of workers
 		pool = ThreadPool(4)

@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-# KV store record creation - streaming search command
+# KV Store Record Foreign Key Creation
 # Creates records in a collection based on group-by field
 # Appends all events with the key value in a user-specified field,
 #  which can be written to a second collection (referencing the keys in the first)
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.8
+# Version: 2.0.9
 
 from __future__ import print_function
 from builtins import str
@@ -19,17 +19,17 @@ import json
 import time
 import re
 import fcntl
-from deductiv_helpers import setup_logger, eprint
+from deductiv_helpers import setup_logger, search_console
 from splunk.clilib import cli_common as cli
-from splunklib.client import connect
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
+from splunklib.client import connect
 from splunklib.searchcommands import \
     dispatch, StreamingCommand, Configuration, Option
 
 @Configuration(local=True)
-class kvstore_createfkCommand(StreamingCommand):
+class KVStoreCreateFKCommand(StreamingCommand):
 	""" %(synopsis)
 	
 	##Syntax (Example)  
@@ -93,18 +93,14 @@ class kvstore_createfkCommand(StreamingCommand):
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
 		except BaseException as e:
-			eprint("Could not read configuration: " + repr(e))
+			self.write_error("Could not read configuration: " + repr(e))
+			exit(1)
 		
 		# Facility info - prepended to log lines
 		facility = os.path.basename(__file__)
 		facility = os.path.splitext(facility)[0]
-		try:
-			logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		except BaseException as e:
-			eprint("Could not create logger: " + repr(e))
-			print("Could not create logger: " + repr(e))
-			exit(1)
-
+		logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
+		ui = search_console(logger, self)
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
 		
 		if self.app:
@@ -115,9 +111,7 @@ class kvstore_createfkCommand(StreamingCommand):
 		if self.collection:
 			logger.debug('Collection: %s' % self.collection)
 		else:
-			logger.critical("No collection specified. Exiting.")
-			print("Error: No collection specified.")
-			exit(1)
+			ui.exit_error("No collection specified.")
 
 		if self.outputkeyfield:
 			logger.debug('Output Key Field: %s' % self.outputkeyfield)
@@ -180,9 +174,7 @@ class kvstore_createfkCommand(StreamingCommand):
 			if self.collection in service.kvstore:
 				obj_collection = service.kvstore[self.collection]
 			else:
-				logger.critical("KVStore not found: %s" % self.collection)
-				print('KVStore not found: %s' % self.collection)
-				exit(1)
+				ui.exit_error("KVStore collection not found: %s" % self.collection)
 			
 			# First invocation - build the lists for static and variable values
 			if static_output_fields == {} and variable_output_fields == {}:	
@@ -222,10 +214,7 @@ class kvstore_createfkCommand(StreamingCommand):
 					f.write(json.dumps(variable_output_fields, ensure_ascii=False))
 					
 		except BaseException as e:
-			logger.critical('Error connecting to collection: %s' % repr(e), exc_info=True)
-			print('Error connecting to collection: %s' % repr(e))
-			exit(1)
-
+			ui.exit_error('Error connecting to collection: %s' % repr(e))
 
 		# Read the events, resolve the variables, store them on a per-groupby-fieldvalue basis
 		i = 0
@@ -261,13 +250,16 @@ class kvstore_createfkCommand(StreamingCommand):
 								new_kv_record[lookup_field] = e[event_field]
 								update = True
 				if update:
-					# Update the collection
-					new_kv_record.update(static_output_fields)
-					response = obj_collection.data.update(kvstore_entry_key, json.dumps(new_kv_record))
+					try:
+						# Update the collection
+						new_kv_record.update(static_output_fields)
+						response = obj_collection.data.update(kvstore_entry_key, json.dumps(new_kv_record))
 
-					# Write the data to disk immediately so other threads can benefit
-					with open(resolved_variables_file, 'w') as f:
-						f.write(json.dumps(resolved_variables, ensure_ascii=False))
+						# Write the data to disk immediately so other threads can benefit
+						with open(resolved_variables_file, 'w') as f:
+							f.write(json.dumps(resolved_variables, ensure_ascii=False))
+					except BaseException as e:
+						ui.exit_error('Unable to update collection %s: %s' % (self.collection, repr(e)))
 
 			else:
 				# First time we're seeing this groupby value. Resolve variables and write the KV store record.
@@ -283,12 +275,15 @@ class kvstore_createfkCommand(StreamingCommand):
 							resolved_variables[groupby_value][lookup_field] = e[event_field]
 							new_kv_record[lookup_field] = e[event_field]
 				
-				# Write the new kvstore record and get the ID (_key) 
-				response = obj_collection.data.insert(json.dumps(new_kv_record))
+				try:
+					# Write the new kvstore record and get the ID (_key) 
+					response = obj_collection.data.insert(json.dumps(new_kv_record))
+				except BaseException as e:
+					ui.exit_error('Unable to insert record into collection %s: %s' % (self.collection, repr(e)))
 				kvstore_entry_key = response["_key"]
 				resolved_variables[groupby_value]["_key"] = kvstore_entry_key
 
-				# Write the data to disk immediately so other threads can benefit
+				# Write the data to disk immediately so other chunk invocations can benefit
 				with open(resolved_variables_file, 'w') as f:
 					f.write(json.dumps(resolved_variables, ensure_ascii=False))
 					inserts += 1
@@ -300,4 +295,4 @@ class kvstore_createfkCommand(StreamingCommand):
 			i += 1
 		logger.info("Modified %d events and inserted %s new records into %s" % (i, inserts, self.collection))
 	
-dispatch(kvstore_createfkCommand, sys.argv, sys.stdin, sys.stdout, __name__)
+dispatch(KVStoreCreateFKCommand, sys.argv, sys.stdin, sys.stdout, __name__)
