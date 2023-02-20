@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-# KV store record creation - streaming search command
+# KV Store Record Foreign Key Creation
 # Creates records in a collection based on group-by field
 # Appends all events with the key value in a user-specified field,
 #  which can be written to a second collection (referencing the keys in the first)
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.8
+# Version: 2.0.9
 
 from __future__ import print_function
 from builtins import str
@@ -19,7 +19,7 @@ import json
 import time
 import re
 import fcntl
-from deductiv_helpers import setup_logger, eprint, search_console
+from deductiv_helpers import setup_logger, search_console
 from splunk.clilib import cli_common as cli
 
 # Add lib folders to import path

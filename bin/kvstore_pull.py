@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-#!/usr/bin/env python
 
 # KV Store Pull
 # Enables the download of remote collections to a local SH instance on a per-app basis
@@ -27,7 +26,7 @@ import splunklib.client as client
 from splunklib.searchcommands import \
 	dispatch, GeneratingCommand, Configuration, Option, validators
 
-@Configuration()
+@Configuration(distributed=False, type='reporting')
 class KVStorePullCommand(GeneratingCommand):
 	""" %(synopsis)
 
@@ -98,7 +97,7 @@ class KVStorePullCommand(GeneratingCommand):
 		splunkd_uri = self._metadata.searchinfo.splunkd_uri
 
 		# Check for permissions to run the command
-		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=local_session_key, method='GET')[1]
+		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=local_session_key)[1]
 		content = json.loads(content)
 		current_user = self._metadata.searchinfo.username
 		current_user_capabilities = content['entry'][0]['content']['capabilities']

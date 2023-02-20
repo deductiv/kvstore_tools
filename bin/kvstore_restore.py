@@ -16,8 +16,9 @@ import json
 import time
 import glob
 import re
+import gzip
 import kv_common as kv
-from deductiv_helpers import setup_logger, eprint, search_console
+from deductiv_helpers import setup_logger, get_uncompressed_size, search_console
 from splunk.clilib import cli_common as cli
 import splunk.rest as rest
 
@@ -26,7 +27,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '
 from splunklib.searchcommands import \
     dispatch, GeneratingCommand, Configuration, Option, validators
 
-@Configuration()
+@Configuration(distributed=False, type='reporting')
 class KVStoreRestoreCommand(GeneratingCommand):
 	""" %(synopsis)
 
@@ -71,7 +72,7 @@ class KVStoreRestoreCommand(GeneratingCommand):
 		splunkd_uri = self._metadata.searchinfo.splunkd_uri
 
 		# Check for permissions to run the command
-		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=session_key, method='GET')[1]
+		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=session_key)[1]
 		content = json.loads(content)
 		current_user = self._metadata.searchinfo.username
 		current_user_capabilities = content['entry'][0]['content']['capabilities']
@@ -109,6 +110,7 @@ class KVStoreRestoreCommand(GeneratingCommand):
 				backup_file_list.append(name)
 
 			if len(backup_file_list) == 0:
+				# Check again in the default path
 				self.filename = os.path.join(default_path, self.filename)
 				for name in glob.glob(self.filename):
 					backup_file_list.append(name)
@@ -144,28 +146,36 @@ class KVStoreRestoreCommand(GeneratingCommand):
 				# Extract the app name and collection name from the file name
 				file_app = name_split[0]
 				file_collection = name_split[1]
-
+				if name.endswith('.json.gz'):
+					data_bytes = get_uncompressed_size(name)
+				else:		
+					data_bytes = os.stat(name).st_size
+				
 				if list_only:
-					yield {'filename': name, 'app': file_app, 'collection': file_collection, 'status': 'ready' }
+					status = 'ready' if data_bytes > 0 else 'empty'
+					yield {'filename': name, 'app': file_app, 'collection': file_collection, 'bytes': data_bytes, 'status': status }
 				else:
-					if not self.append:
-						# Delete the collection contents using the KV Store REST API
+					if data_bytes > 0:
+						if not self.append:
+							# Delete the collection contents using the KV Store REST API
+							try:
+								collection_id = file_app + "/" + file_collection
+								# Make sure we aren't trying to delete the same collection twice
+								if not collection_id in deleted_collections:
+									kv.delete_collection(logger, splunkd_uri, session_key, file_app, file_collection)
+									deleted_collections.append(collection_id)
+							except BaseException as e:
+								ui.exit_error('Failed to delete collection %s/%s: %s' % (file_app, file_collection, repr(e)))
+						
+						# Upload the collection to the KV Store REST API
 						try:
-							collection_id = file_app + "/" + file_collection
-							# Make sure we aren't trying to delete the same collection twice
-							if not collection_id in deleted_collections:
-								kv.delete_collection(logger, splunkd_uri, session_key, file_app, file_collection)
-								deleted_collections.append(collection_id)
+							result, message, record_count = kv.upload_collection(logger, splunkd_uri, session_key, file_app, file_collection, name)
+							yield({ 'filename': name, 'app': file_app, 'collection': file_collection, 'result': result, 'message': message, 'records': record_count })
 						except BaseException as e:
-							ui.exit_error('Failed to delete collection %s/%s: %s' % (file_app, file_collection, repr(e)))
-					
-					# Upload the collection to the KV Store REST API
-					try:
-						result, message, record_count = kv.upload_collection(logger, splunkd_uri, session_key, file_app, file_collection, name)
-						yield({ 'result': result, 'message': message, 'records': record_count })
-					except BaseException as e:
-						logger.error("Error restoring collection: %s" % repr(e), exc_info=True)
-						yield({'result': 'error', 'message': 'Failed to delete collection: %s' % repr(e), 'records': 0})
+							logger.error("Error restoring collection: %s" % repr(e), exc_info=True)
+							yield({ 'filename': name, 'app': file_app, 'collection': file_collection, 'result': 'error', 'message': 'Failed to delete collection: %s' % repr(e), 'records': 0})
+					else:
+						yield({ 'filename': name, 'app': file_app, 'collection': file_collection, 'result': 'skipped', 'message': f'Restored 0 records to {file_app}/{file_collection}', 'records': 0 })
 
 			elif name.endswith('.tar.gz') or name.endswith('.tgz'):
 				logger.info('Skipping filename (unsupported format): %s' % name)

@@ -29,7 +29,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '
 from splunklib.searchcommands import \
     dispatch, GeneratingCommand, Configuration, Option, validators
 
-@Configuration()
+@Configuration(distributed=False, type='reporting')
 class KVStoreBackupCommand(GeneratingCommand):
 	""" %(synopsis)
 
@@ -98,7 +98,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 		splunkd_uri = self._metadata.searchinfo.splunkd_uri
 
 		# Check for permissions to run the command
-		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=session_key, method='GET')[1]
+		content = rest.simpleRequest('/services/authentication/current-context?output_mode=json', sessionKey=session_key)[1]
 		content = json.loads(content)
 		current_user = self._metadata.searchinfo.username
 		current_user_capabilities = content['entry'][0]['content']['capabilities']

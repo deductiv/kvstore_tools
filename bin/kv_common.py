@@ -30,7 +30,7 @@ def get_server_apps(uri, session_key, app = None):
 	else:
 		# Enumerate all remote apps
 		apps_uri = uri + '/services/apps/local?output_mode=json&count=0'
-		content = rest.simpleRequest(apps_uri, sessionKey=session_key, method='GET')[1]
+		content = rest.simpleRequest(apps_uri, sessionKey=session_key)[1]
 		content = json.loads(content)
 		for entry in content["entry"]:
 			if not entry["content"]["disabled"]:
@@ -310,14 +310,14 @@ def upload_collection(logger, remote_uri, remote_session_key, app, collection, f
 		try:
 			# Reset the file cursor to 0
 			fh.seek(0)
-			contents = json.loads(fh.read() + "]", strict=False)
+			contents = json.loads(fh.read() + b']', strict=False)
 		except BaseException:
 			logger.error("[Append ']'] Error reading modified json input.\n\tAttempting modification (Strip '[]')")
 			try:
 				# Reset the file cursor to 0
 				fh.seek(0)
-				contents = json.loads(fh.read().strip('[]'), strict=False)
-			except BaseException:
+				contents = json.loads(fh.read().strip(b'[]'), strict=False)
+			except BaseException as e:
 				logger.error("[Strip '[]'] Error reading modified json input for file %s.  Aborting." % file_path)
 				status = 'error'
 				message = 'Unable to read file'

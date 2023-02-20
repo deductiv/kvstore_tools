@@ -24,6 +24,7 @@ import datetime
 import socket
 import json
 import random
+import struct
 import splunk
 import splunk.entity as en
 from splunk.rest import simpleRequest
@@ -56,7 +57,7 @@ def get_credentials(app, session_key):
 		raise Exception("No credentials have been found")
 
 # HTTP request wrapper
-def request(method, url, data, headers, conn=None, verify=True):
+def request(method, url, data, headers, conn=None, verify=None):
 	"""Helper function to fetch data from the given URL"""
 	# See if this is utf-8 encoded already
 	try:
@@ -70,7 +71,9 @@ def request(method, url, data, headers, conn=None, verify=True):
 	if conn is None:
 		close_conn = True
 		if url_tuple.scheme == 'https':
-			if verify:
+			# If verify was set explicitly, OR it's not set to False and env[PYTHONHTTPSVERIFY] is set
+			env_verify_set = os.environ.get('PYTHONHTTPSVERIFY', default=False)
+			if verify or (str2bool(env_verify_set) and not verify==False):
 				conn = httplib.HTTPSConnection(url_tuple.netloc, context=ssl.create_default_context())
 			else:
 				conn = httplib.HTTPSConnection(url_tuple.netloc, context=ssl._create_unverified_context())
@@ -244,7 +247,7 @@ def get_tokens(searchinfo):
 			owner=searchinfo.owner
 		)
 		try:
-			job_response = simpleRequest(job_uri, method='GET', getargs={'output_mode':'json'}, sessionKey=searchinfo.session_key)[1]
+			job_response = simpleRequest(job_uri, getargs={'output_mode':'json'}, sessionKey=searchinfo.session_key)[1]
 			search_job = json.loads(job_response)
 			job_content = search_job['entry'][0]['content']
 		except splunk.ResourceNotFound:
@@ -269,7 +272,7 @@ def get_tokens(searchinfo):
 			owner=searchinfo.owner
 		)
 
-		responseBody = simpleRequest(uri, method='GET', getargs={'output_mode':'json'}, sessionKey=searchinfo.session_key)[1]
+		responseBody = simpleRequest(uri, getargs={'output_mode':'json'}, sessionKey=searchinfo.session_key)[1]
 
 		saved_search = json.loads(responseBody)
 		ss_content = saved_search['entry'][0]['content']
@@ -379,3 +382,8 @@ def is_cloud(session_key):
 		return instance_type == "cloud"
 	except KeyError:
 		return False
+
+def get_uncompressed_size(filename):
+    with open(filename, 'rb') as f:
+        f.seek(-4, 2)
+        return struct.unpack('I', f.read(4))[0]

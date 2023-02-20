@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# KV Store Collection Record Deleter
+# KV Store Collection Bulk Record Deleter
 # Deletes records from a KV Store collection based on _key value in search results
 # Parameters are based on search results
 

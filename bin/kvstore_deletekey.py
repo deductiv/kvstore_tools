@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# KV Store Collection Record Deleter
+# KV Store Collection Single Record Deleter
 # Deletes a specific record from a KV Store collection based on _key value
 
 # Author: J.R. Murray <jr.murray@deductiv.net>
@@ -23,7 +23,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '
 from splunklib.searchcommands import \
 	dispatch, GeneratingCommand, Configuration, Option
 
-@Configuration()
+@Configuration(distributed=False, type='reporting')
 class KVStoreDeleteKeyCommand(GeneratingCommand):
 	""" %(synopsis)
 
