@@ -119,7 +119,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 			# Get path from configuration
 			try:
 				# Break path out and re-join it so it's OS independent
-				default_path = cfg.get('default_path').split('/')
+				default_path = os.path.expandvars(cfg.get('default_path')).split('/')
 				self.path = os.path.abspath(os.path.join(os.sep, *default_path))
 			except:
 				ui.exit_error("Unable to get backup path. Path not provided in search arguments and default path is not set.")
