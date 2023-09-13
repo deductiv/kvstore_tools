@@ -1,5 +1,5 @@
 []
-access = read : [ * ], write : [ admin, kv_admin ]
+access = read : [ * ], write : [ admin, sc_admin, kv_admin ]
 export = system
 
 [views]

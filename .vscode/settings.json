@@ -1,0 +1,23 @@
+{
+    "python.analysis.extraPaths": [
+        "./lib",
+        "./bin/lib",
+        "/Applications/Splunk/lib/python3.7/site-packages"
+    ],
+    "python.analysis.importFormat": "relative",
+    "pylint.interpreter": ["/Applications/Splunk/bin/python3"],
+    "pylint.args": ["--good-names=i,j,k,e,ex,Run,_,pk,x,y",
+        "--indent-string='\t'"],
+
+    // I want my default to be 4, but JavaScript/JSON to be 2
+    "editor.tabSize": 4,
+    "editor.insertSpaces": false,
+
+    "[javascript]": {
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true
+    },
+    "[json]": {
+        "editor.tabSize": 2
+    }
+}

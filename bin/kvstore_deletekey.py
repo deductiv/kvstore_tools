@@ -1,25 +1,20 @@
-#!/usr/bin/env python
+"""
+KV Store Collection Single Record Deleter
+Deletes a specific record from a KV Store collection based on _key value
+Version: 2.0.9
+"""
 
-# KV Store Collection Single Record Deleter
-# Deletes a specific record from a KV Store collection based on _key value
-
-# Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.9
-
-from __future__ import print_function
-from builtins import str
-from future import standard_library
-standard_library.install_aliases()
 import sys
 import os
 import urllib.parse
 import time
 import kv_common as kv
-from deductiv_helpers import setup_logger, request, search_console
+from deductiv_helpers import setup_logger, request, SearchConsole
 from splunk.clilib import cli_common as cli
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
+# pylint: disable=wrong-import-position
 from splunklib.searchcommands import \
 	dispatch, GeneratingCommand, Configuration, Option
 
@@ -58,7 +53,7 @@ class KVStoreDeleteKeyCommand(GeneratingCommand):
 	def generate(self):
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
-		except BaseException as e:
+		except Exception as e:
 			self.write_error("Could not read configuration: " + repr(e))
 			exit(1)
 		
@@ -66,7 +61,7 @@ class KVStoreDeleteKeyCommand(GeneratingCommand):
 		facility = os.path.basename(__file__)
 		facility = os.path.splitext(facility)[0]
 		logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		ui = search_console(logger, self)
+		ui = SearchConsole(logger, self)
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
 		
 		session_key = self._metadata.searchinfo.session_key
@@ -116,7 +111,7 @@ class KVStoreDeleteKeyCommand(GeneratingCommand):
 			if not collection_present:
 				ui.exit_error("KVStore collection %s not found within app %s" % (self.collection, self.app))
 
-		except BaseException as e:
+		except Exception as e:
 			ui.exit_error('Error enumerating collections: ' + str(e))
 
 		url_tmpl_delete = '%(server_uri)s/servicesNS/%(owner)s/%(app)s/storage/collections/data/%(collection)s/%(id)s?output_mode=json'
@@ -132,7 +127,7 @@ class KVStoreDeleteKeyCommand(GeneratingCommand):
 			try:
 				response, response_code = request('DELETE', delete_url, '', headers)
 				logger.debug('Server response: %s', response)
-			except BaseException as e:
+			except Exception as e:
 				logger.error('Failed to delete key %s from collection %s/%s: %s' % (self.key, self.app, self.collection, repr(e)))
 
 			if response_code == 200:
@@ -142,7 +137,7 @@ class KVStoreDeleteKeyCommand(GeneratingCommand):
 				logger.error("Error deleting key %s from collection %s/%s: %s" % (self.key, self.app, self.collection, response))
 				result = "error"
 
-		except BaseException as e:
+		except Exception as e:
 			logger.error("Error deleting key %s from collection %s/%s: %s" % (self.key, self.app, self.collection, repr(e)))
 			result = "error"
 

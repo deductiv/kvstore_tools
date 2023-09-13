@@ -17,13 +17,14 @@ import json
 import urllib.error
 import urllib.parse
 import kv_common as kv
-from deductiv_helpers import setup_logger, eprint, is_ipv4, search_console
+from deductiv_helpers import setup_logger, eprint, is_ipv4, SearchConsole
 from splunk.clilib import cli_common as cli
-import splunk.rest as rest
+from splunk import rest
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
-import splunklib.client as client
+# pylint: disable=wrong-import-position
+from splunklib import client
 from splunklib.searchcommands import \
 	dispatch, GeneratingCommand, Configuration, Option, validators
 
@@ -80,19 +81,19 @@ class KVStorePushCommand(GeneratingCommand):
 	def generate(self):
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
-		except BaseException as e:
+		except Exception as e:
 			self.write_error("Could not read configuration: " + repr(e))
-			exit(1)
+			sys.exit(1)
 		
 		# Facility info - prepended to log lines
 		facility = os.path.basename(__file__)
 		facility = os.path.splitext(facility)[0]
 		logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		ui = search_console(logger, self)
-		logger.info('Script started by %s' % self._metadata.searchinfo.username)
+		ui = SearchConsole(logger, self)
+		logger.info('Script started by %s', self._metadata.searchinfo.username)
 
 		batch_size = int(cfg.get('backup_batch_size'))
-		logger.debug("Batch size: %d rows" % batch_size)
+		logger.debug("Batch size: %d rows", batch_size)
 
 		local_session_key = self._metadata.searchinfo.session_key
 		splunkd_uri = self._metadata.searchinfo.splunkd_uri
@@ -103,23 +104,23 @@ class KVStorePushCommand(GeneratingCommand):
 		current_user = self._metadata.searchinfo.username
 		current_user_capabilities = content['entry'][0]['content']['capabilities']
 		if 'run_kvstore_push' in current_user_capabilities or 'run_kvst_all' in current_user_capabilities or current_user == 'splunk-system-user':
-			logger.debug("User %s is authorized." % current_user)
+			logger.debug("User %s is authorized.", current_user)
 		else:
-			ui.exit_error("User %s is unauthorized. Has the run_kvstore_push capability been granted?" % current_user)
+			ui.exit_error("User %s is unauthorized. Has the run_kvstore_push capability been granted?", current_user)
 		
 		# Sanitize input
 		if self.app:
-			logger.debug('App Context: %s' % self.app)
+			logger.debug('App Context: %s', self.app)
 		else:
 			self.app = None
 
 		if self.collection:
-			logger.debug('Collection: %s' % self.collection)
+			logger.debug('Collection: %s', self.collection)
 		else:
 			self.collection = None
 
 		if self.global_scope:
-			logger.debug('Global Scope: %s' % self.global_scope)
+			logger.debug('Global Scope: %s', self.global_scope)
 		else:
 			self.global_scope = False
 
@@ -127,10 +128,10 @@ class KVStorePushCommand(GeneratingCommand):
 			logger.debug('Appending to existing collection')
 		else:
 			self.append = False
-			logger.debug('Append to existing collection: %s' % str(self.append))
+			logger.debug('Append to existing collection: %s', str(self.append))
 
 		if self.targetport:
-			logger.debug('Port for remote connect: %s' % self.targetport)
+			logger.debug('Port for remote connect: %s', self.targetport)
 		else:
 			self.targetport = '8089'
 
@@ -144,7 +145,7 @@ class KVStorePushCommand(GeneratingCommand):
 				# Otherwise, use the last entry in the list
 				credentials = kv.parse_custom_credentials(logger, cfg)
 				try:
-					if self.target in list(credentials.keys()):
+					if self.target in credentials:
 						hostname = self.target
 					else:
 						if '.' in self.target and not is_ipv4(self.target):
@@ -156,9 +157,9 @@ class KVStorePushCommand(GeneratingCommand):
 					remote_password = credential['password']
 				
 				except KeyError:
-					ui.exit_error("Could not get password for %s: Record not found" % hostname)
-			except BaseException as e:
-				ui.exit_error('Failed to get credentials for remote Splunk instance: %s' % repr(e))
+					ui.exit_error("Could not get password for %s: Record not found", hostname)
+			except Exception as e:
+				ui.exit_error('Failed to get credentials for remote Splunk instance: %s', repr(e))
 			
 			# Login to the remote host and get the session key
 			try:
@@ -174,15 +175,15 @@ class KVStorePushCommand(GeneratingCommand):
 				remote_service.login()
 
 				remote_session_key = remote_service.token.replace('Splunk ', '')
-				logger.debug('Remote session key: %s' % remote_session_key)
+				logger.debug('Remote session key: %s', remote_session_key)
 				
 			except (urllib.error.HTTPError, BaseException) as e:
-				ui.exit_error('Failed to login to remote Splunk instance: %s' % repr(e))
+				ui.exit_error('Failed to login to remote Splunk instance: %s', repr(e))
 
 			# Get the list of remote apps and collections
 			local_app_list = kv.get_server_apps(splunkd_uri, local_session_key, self.app)
 			local_collection_list = kv.get_app_collections(splunkd_uri, local_session_key, self.collection, self.app, local_app_list, self.global_scope)
-			logger.debug('Collections to push: %s' % str(local_collection_list))
+			logger.debug('Collections to push: %s', str(local_collection_list))
 
 			for local_collection in local_collection_list:
 				# Extract the app and collection name from the array
@@ -190,7 +191,7 @@ class KVStorePushCommand(GeneratingCommand):
 				collection_name = local_collection[1]
 				try:
 					yield(kv.copy_collection(logger, local_session_key, splunkd_uri, remote_session_key, remote_uri, collection_app, collection_name, self.append))
-				except BaseException as e:
-					ui.exit_error('Failed to copy collections from %s to remote KV store: %s' % (host, repr(e)))
+				except Exception as e:
+					ui.exit_error('Failed to copy collections from %s to remote KV store: %s', (host, repr(e)))
 			
 dispatch(KVStorePushCommand, sys.argv, sys.stdin, sys.stdout, __name__)

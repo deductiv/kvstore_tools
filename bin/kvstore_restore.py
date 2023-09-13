@@ -1,29 +1,24 @@
 #!/usr/bin/env python
+"""
+KV Store Collection Restore
+Enables restore of backed up KV Store from json or json.gz files
+Version: 2.0.9
+"""
 
-# KV Store App Restore
-# Enables restore of backed up KV Store from json or json.gz files
-
-# Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.9
-
-from __future__ import print_function
-from builtins import str
-from future import standard_library
-standard_library.install_aliases()
 import sys
 import os
 import json
 import time
 import glob
 import re
-import gzip
 import kv_common as kv
-from deductiv_helpers import setup_logger, get_uncompressed_size, search_console
+from deductiv_helpers import setup_logger, get_uncompressed_size, SearchConsole
 from splunk.clilib import cli_common as cli
-import splunk.rest as rest
+from splunk import rest
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
+# pylint: disable=wrong-import-position
 from splunklib.searchcommands import \
     dispatch, GeneratingCommand, Configuration, Option, validators
 
@@ -57,7 +52,7 @@ class KVStoreRestoreCommand(GeneratingCommand):
 	def generate(self):
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
-		except BaseException as e:
+		except Exception as e:
 			self.write_error("Could not read configuration: " + repr(e))
 			exit(1)
 		
@@ -65,8 +60,8 @@ class KVStoreRestoreCommand(GeneratingCommand):
 		facility = os.path.basename(__file__)
 		facility = os.path.splitext(facility)[0]
 		logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		ui = search_console(logger, self)
-		logger.info('Script started by %s' % self._metadata.searchinfo.username)
+		ui = SearchConsole(logger, self)
+		logger.info('Script started by %s', self._metadata.searchinfo.username)
 
 		session_key = self._metadata.searchinfo.session_key
 		splunkd_uri = self._metadata.searchinfo.splunkd_uri
@@ -77,13 +72,13 @@ class KVStoreRestoreCommand(GeneratingCommand):
 		current_user = self._metadata.searchinfo.username
 		current_user_capabilities = content['entry'][0]['content']['capabilities']
 		if 'run_kvstore_restore' in current_user_capabilities or 'run_kvst_all' in current_user_capabilities or current_user == 'splunk-system-user':
-			logger.debug("User %s is authorized." % current_user)
+			logger.debug("User %s is authorized.", current_user)
 		else:
-			ui.exit_error("User %s is unauthorized. Has the run_kvstore_restore capability been granted?" % current_user)
+			ui.exit_error("User %s is unauthorized. Has the run_kvstore_restore capability been granted?", current_user)
 		
 		# Sanitize input
 		if self.filename:
-			logger.debug('Restore filename: %s' % self.filename)
+			logger.debug('Restore filename: %s', self.filename)
 			list_only = False
 		else:
 			self.filename = "*#*#*.json*"
@@ -116,29 +111,29 @@ class KVStoreRestoreCommand(GeneratingCommand):
 					backup_file_list.append(name)
 
 			if len(backup_file_list) == 0:
-				ui.exit_error("No matching files: %s" % self.filename)
+				ui.exit_error("No matching files: %s", self.filename)
 		else:
-			logger.debug('No wildcard string found in %s' % self.filename)
+			logger.debug('No wildcard string found in %s', self.filename)
 			if os.path.isfile(self.filename):
 				backup_file_list.append(self.filename)
 			elif os.path.isfile(os.path.join(default_path, self.filename)):
 				backup_file_list.append(os.path.join(default_path, self.filename))
 			else:
-				ui.exit_error("File does not exist: %s" % self.filename)
+				ui.exit_error("File does not exist: %s", self.filename)
 
 		deleted_collections = []
 
 		# f is now an array of filenames
 		for name in backup_file_list:
-			logger.debug('Parsing filename: %s' % name)
+			logger.debug('Parsing filename: %s', name)
 			try:
 				# Isolate the filename from the path
 				matches = re.search(r'(.*)(?:\/|\\)([^\/\\]+)', name)
 				#path = matches.group(1)
 				file_param = matches.group(2)
 				name_split = file_param.split('#')
-			except BaseException as e:
-				ui.exit_error('Invalid filename: %s\n\t%s' % (name, repr(e)))
+			except Exception as e:
+				ui.exit_error('Invalid filename: %s\n\t%s', (name, repr(e)))
 
 			# Open the file if it's a supported format
 			if (name.endswith('.json') or name.endswith('.json.gz')) and len(name_split)==3:
@@ -164,26 +159,26 @@ class KVStoreRestoreCommand(GeneratingCommand):
 								if not collection_id in deleted_collections:
 									kv.delete_collection(logger, splunkd_uri, session_key, file_app, file_collection)
 									deleted_collections.append(collection_id)
-							except BaseException as e:
-								ui.exit_error('Failed to delete collection %s/%s: %s' % (file_app, file_collection, repr(e)))
+							except Exception as e:
+								ui.exit_error(f'Failed to delete collection {file_app}/{file_collection}: {repr(e)}' % (file_app, file_collection, repr(e)))
 						
 						# Upload the collection to the KV Store REST API
 						try:
 							result, message, record_count = kv.upload_collection(logger, splunkd_uri, session_key, file_app, file_collection, name)
 							yield({ 'filename': name, 'app': file_app, 'collection': file_collection, 'result': result, 'message': message, 'records': record_count })
-						except BaseException as e:
-							logger.error("Error restoring collection: %s" % repr(e), exc_info=True)
+						except Exception as e:
+							logger.error("Error restoring collection: %s", repr(e), exc_info=True)
 							yield({ 'filename': name, 'app': file_app, 'collection': file_collection, 'result': 'error', 'message': 'Failed to delete collection: %s' % repr(e), 'records': 0})
 					else:
 						yield({ 'filename': name, 'app': file_app, 'collection': file_collection, 'result': 'skipped', 'message': f'Restored 0 records to {file_app}/{file_collection}', 'records': 0 })
 
 			elif name.endswith('.tar.gz') or name.endswith('.tgz'):
-				logger.info('Skipping filename (unsupported format): %s' % name)
+				logger.info('Skipping filename (unsupported format): %s', name)
 				yield {'_time': time.time(), 'source': name, 'app': '', 'collection': '', 'records': 0, 'result': 'error' }
 				continue
 			else:
 				# Skip this file
-				logger.info('Skipping filename (does not meet naming convention): %s' % name)
+				logger.info('Skipping filename (does not meet naming convention): %s', name)
 				yield {'_time': time.time(), 'source': name, 'app': '', 'collection': '', 'records': 0, 'result': 'error' }
 				continue
 

@@ -1,13 +1,8 @@
-# kv_common.py
-# Functions for managing KV Store collection data
+"""
+Functions for managing KV Store collection data
+Version: 2.0.9
+"""
 
-# Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.9
-
-from __future__ import print_function
-from builtins import str
-from future import standard_library
-standard_library.install_aliases()
 import os
 import sys
 import json
@@ -16,11 +11,12 @@ from datetime import datetime, timedelta
 import gzip
 import re
 from deductiv_helpers import eprint, request
-import splunk.rest as rest
+from splunk import rest
 from splunk.clilib import cli_common as cli
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
+# pylint: disable=wrong-import-position, import-error
 from splunksecrets import decrypt
 
 def get_server_apps(uri, session_key, app = None):
@@ -60,7 +56,7 @@ def get_app_collections(uri, session_key, selected_collection, selected_app, app
 			else:
 				# There's a problem connecting. Abort.
 				raise Exception("Could not connect to server: Error %s" % response_code)
-		except BaseException as e:
+		except Exception as e:
 			raise Exception(e)
 
 		for entry in response["entry"]:
@@ -145,7 +141,7 @@ def copy_collection(logger, source_session_key, source_uri, target_session_key, 
 			"download_time": download_time, "delete_time": delete_time, 
 			"upload_time": upload_time, "download_count": record_count, "upload_count": posted}
 
-	except BaseException as e:
+	except Exception as e:
 		raise Exception("Error copying the collection from %s to %s: %s" % (source_host, target_host, repr(e)))
 
 def delete_collection(logger, remote_uri, remote_session_key, app, collection):
@@ -170,7 +166,7 @@ def delete_collection(logger, remote_uri, remote_session_key, app, collection):
 		logger.debug('Server response for collection deletion: (%d) %s' % (response_code, response))
 		logger.info("Deleted collection: %s\\%s from %s" % (app, collection, hostname))
 		return response_code
-	except BaseException as e:
+	except Exception as e:
 		raise Exception('Failed to delete collection %s/%s from %s: %s' % (app, collection, hostname, repr(e)))
 
 def download_collection(logger, remote_uri, remote_session_key, app, collection, output_file, compress=False):
@@ -271,7 +267,7 @@ def download_collection(logger, remote_uri, remote_session_key, app, collection,
 			result = "skipped"
 			message = "Collection is empty"
 
-	except BaseException as e:
+	except Exception as e:
 		logger.error('Failed to download collection: %s' % repr(e), exc_info=True)
 		result = "error"
 		message = repr(e)
@@ -304,20 +300,20 @@ def upload_collection(logger, remote_uri, remote_session_key, app, collection, f
 
 		# Read the file data and parse with JSON loader
 		contents = json.loads(fh.read(), strict=False)
-	except BaseException as e:
+	except Exception as e:
 		# Account for a bug in prior versions where the record count could be wrong if "_key" was in the data and the ] would not get appended.
 		logger.error("Error reading file: %s\n\tAttempting modification (Append ']')." % str(e))
 		try:
 			# Reset the file cursor to 0
 			fh.seek(0)
 			contents = json.loads(fh.read() + b']', strict=False)
-		except BaseException:
+		except Exception:
 			logger.error("[Append ']'] Error reading modified json input.\n\tAttempting modification (Strip '[]')")
 			try:
 				# Reset the file cursor to 0
 				fh.seek(0)
 				contents = json.loads(fh.read().strip(b'[]'), strict=False)
-			except BaseException as e:
+			except Exception as e:
 				logger.error("[Strip '[]'] Error reading modified json input for file %s.  Aborting." % file_path)
 				status = 'error'
 				message = 'Unable to read file'
@@ -367,7 +363,7 @@ def upload_collection(logger, remote_uri, remote_session_key, app, collection, f
 			if response_code != 200:
 				raise Exception("Error %d when posting collection contents" % response_code)
 
-		except BaseException as e:
+		except Exception as e:
 			result = 'error'
 			message = 'Failed to upload collection: %s' % repr(e)
 			logger.debug(message, exc_info=True)

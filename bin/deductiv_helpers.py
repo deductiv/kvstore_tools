@@ -1,14 +1,8 @@
-# Common cross-app functions to simplify code
+"""
+Common cross-app functions to simplify code
+Version 2.0.9 (2023-02-15)
+"""
 
-# Copyright 2023 Deductiv Inc.
-# Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.9 (2023-02-15)
-
-from __future__ import print_function
-from array import array
-from builtins import str
-from future import standard_library
-standard_library.install_aliases()
 import sys
 import os
 import urllib.request
@@ -31,26 +25,27 @@ from splunk.rest import simpleRequest
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
-# https://github.com/HurricaneLabs/splunksecrets/blob/master/splunksecrets.py
+# pylint: disable=wrong-import-position, import-error
 from splunksecrets import decrypt
 
 def get_credentials(app, session_key):
+	""" Get an app's credentials from the Splunk REST API """
 	try:
 		# list all credentials
 		entities = en.getEntities(['admin', 'passwords'], namespace=app,
           owner='nobody', sessionKey=session_key)
 	except Exception as e:
-		raise Exception("Could not get %s credentials from Splunk. Error: %s" % (app, str(e)))
+		raise Exception(f"Could not get {app} credentials from Splunk. Error: {str(e)}") from e
 
 	credentials = []
-	
-	for id, c in list(entities.items()):		# pylint: disable=unused-variable
+
+	for entry in list(entities.values()):		# pylint: disable=unused-variable
 		# c.keys() = ['clear_password', 'password', 'username', 'realm', 'eai:acl', 'encr_password']
-		if c['eai:acl']['app'] == app:
-			credentials.append({'realm': c["realm"], 
-			  'username': c["username"], 
-			  "password": c["clear_password"]})
-	
+		if entry['eai:acl']['app'] == app:
+			credentials.append({'realm': entry["realm"],
+			  'username': entry["username"],
+			  "password": entry["clear_password"]})
+
 	if len(credentials) > 0:
 		return credentials
 	else:
@@ -65,20 +60,21 @@ def request(method, url, data, headers, conn=None, verify=None):
 	except AttributeError:
 		try:
 			data = urllib.parse.urlencode(data).encode("utf-8")
-		except:
+		except TypeError:
 			data = data.encode("utf-8")
 	url_tuple = urllib.parse.urlparse(url)
 	if conn is None:
 		close_conn = True
 		if url_tuple.scheme == 'https':
+			ctx = ssl.create_default_context()
 			# If verify was set explicitly, OR it's not set to False and env[PYTHONHTTPSVERIFY] is set
-			env_verify_set = os.environ.get('PYTHONHTTPSVERIFY', default=False)
-			if verify or (str2bool(env_verify_set) and not verify==False):
-				conn = httplib.HTTPSConnection(url_tuple.netloc, context=ssl.create_default_context())
-			else:
-				conn = httplib.HTTPSConnection(url_tuple.netloc, context=ssl._create_unverified_context())
+			env_verify_set = os.environ.get('PYTHONHTTPSVERIFY', default=True)
+			if verify is False or (env_verify_set is False and not verify):
+				ctx.check_hostname = False
+				ctx.verify_mode = ssl.CERT_NONE
+			conn = httplib.HTTPSConnection(url_tuple.netloc, context=ctx)
 		elif url_tuple.scheme == 'http':
-			conn = httplib.HTTPConnection(url_tuple.netloc, context=ssl._create_unverified_context())
+			conn = httplib.HTTPConnection(url_tuple.netloc)
 	else:
 		close_conn = False
 	try:
@@ -89,21 +85,23 @@ def request(method, url, data, headers, conn=None, verify=None):
 		if close_conn:
 			conn.close()
 		return response_data, response_status
-	except BaseException as e:
-		raise Exception("URL Request Error: " + str(e))
+	except Exception as e:
+		raise Exception(f"URL Request Error: {repr(e)}") from e
 
 def setup_logging(logger_name):
+	""" Return the logging module with a given name """
 	logger = logging.getLogger(logger_name)
 	return logger
 
 # For alert actions
 def setup_logger(level, filename, facility):
+	""" Return a complete standalone logging module with a given name """
 	random_number = str(random.randint(10000, 100000))
 	logger = logging.getLogger(filename + str(random_number))
 	# Prevent the log messages from being duplicated in the python.log file
 	logger.propagate = False 
 	logger.setLevel(level)
-	
+
 	log_file = os.path.join(os.environ['SPLUNK_HOME'], 'var', 'log', 'splunk', filename)
 	file_handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=25000000, backupCount=2)
 	formatter = logging.Formatter('%(asctime)s [{0}] %(levelname)s %(message)s'.format(facility))
@@ -112,10 +110,11 @@ def setup_logger(level, filename, facility):
 	stderr_handler.setLevel(logging.ERROR)
 	logger.addHandler(file_handler)
 	logger.addHandler(stderr_handler)
-	
+
 	return logger
 
 def read_config(filename):
+	""" Read a configuration file on disk and return the configuration object """
 	config = configparser.ConfigParser()
 	app_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 	app_child_dirs = ['default', 'local']
@@ -123,20 +122,22 @@ def read_config(filename):
 		try:
 			config_file = os.path.join(app_dir, cdir, filename)
 			config.read(config_file)
-		except:
+		except Exception:
 			pass
 	return config
 
-# Merge two dictionary objects (x,y) into one (z)
 def merge_two_dicts(x, y):
+	""" Merge two dictionary objects (x,y) into one (z) """
 	z = x.copy()	# start with x's keys and values
 	z.update(y)	# modifies z with y's keys and values & returns None
 	return z
 
 def hex_convert(s):
+	""" Convert a string to hexadecimal format """
 	return ":".join("{:02x}".format(ord(c)) for c in s)
 
 def str2bool(v):
+	""" Convert a string value to a boolean value """
 	if isinstance(v, bool):
 		return v
 	else:
@@ -144,66 +145,72 @@ def str2bool(v):
 
 # STDERR printing for python 3
 def eprint(*args, **kwargs):
+	""" Print output to stderr; helpful for writing to search.log """
 	print(*args, file=sys.stderr, **kwargs)
 
 def escape_quotes(string):
+	""" Escape quotation marks in strings """
+	# Replace " preceded by \ (double escape)
 	string = re.sub(r'(?<=\\)"', r'\\\"', string)
+	# Replace " not preceded by \
 	string = re.sub(r'(?<!\\)"', r'\"', string)
 	return string
 
 def escape_quotes_csv(string):
+	""" Double-escape quotes for CSV output """
 	return string.replace('"', '""')
 
 def is_ipv4(host):
-	r = "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$"
-	if(re.search(r, host)):
-		return True
-	else:
-		return False
+	""" Check if a string is an IPv4 address """
+	regex = r'^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$'
+	return bool(re.search(regex, host))
 
-def replace_keywords(s):
-
+def replace_keywords(input_string):
+	""" Replace keywords in strings for use with scheduled file outputs """
 	now = str(int(time.time()))
 	nowms = str(int(time.time()*1000))
 	nowft = datetime.datetime.now().strftime("%F_%H%M%S")
 	today = datetime.datetime.now().strftime("%F")
 	yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%F")
 
-	strings_to_replace = {
+	keyword_replacements = {
 		'__now__': now,
 		'__nowms__': nowms,
 		'__nowft__': nowft,
 		'__today__': today,
 		'__yesterday__': yesterday
 	}
-	
-	for x in list(strings_to_replace.keys()):
-		s = s.replace(x, strings_to_replace[x])
-	return s
 
-class search_console:
+	for keyword_input in list(keyword_replacements.keys()):
+		input_string = input_string.replace(keyword_input, keyword_replacements[keyword_input])
+	return input_string
+
+class SearchConsole:
+	""" Object to help interface with search UI (e.g. print job errors) """
 	def __init__(self, logger, caller_object):
 		self.logger = logger
 		self.caller_object = caller_object
-		
+
 	def exit_error(self, message, error_code=1):
+		""" Exit with an error; echo to the search console and the log file first """
 		eprint(message)
 		if self.caller_object is not None:
 			if hasattr(self.caller_object, '_configuration'):
-				command = str(self.caller_object._configuration.command).split(' ')[0]
+				command = str(self.caller_object._configuration.command).split(' ', maxsplit=1)[0] #pylint: disable=protected-access
 			else:
 				command = ''
 			if hasattr(self.caller_object, 'write_error'):
-				self.caller_object.write_error(f'{command}: {message} ({command})')
+				self.caller_object.write_error(f'{command}: {message}')
 		self.logger.critical(message)
-		exit(error_code)
+		sys.exit(error_code)
 
 def decrypt_with_secret(encrypted_text):
+	""" Use splunksecrets.py and splunk.secret to decrypt a secret """
 	# Check for encryption
 	if encrypted_text[:1] == '$':
 		# Decrypt the text
 		# Read the splunk.secret file
-		with open(os.path.join(os.getenv('SPLUNK_HOME'), 'etc', 'auth', 'splunk.secret'), 'r') as ssfh:
+		with open(os.path.join(os.getenv('SPLUNK_HOME'), 'etc', 'auth', 'splunk.secret'), 'r', encoding='ascii') as ssfh:
 			splunk_secret = ssfh.readline()
 		# Call the decrypt function from splunksecrets.py
 		return decrypt(splunk_secret, encrypted_text)
@@ -211,20 +218,19 @@ def decrypt_with_secret(encrypted_text):
 		# Not encrypted
 		return encrypted_text
 
-def port_is_open(ip, port):
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.settimeout(3)
+def port_is_open(ip_address, port):
+	""" Connect to a host and check if the port is open """
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	sock.settimeout(3)
 	try:
-		s.connect((ip, int(port)))
-		s.shutdown(2)
+		sock.connect((ip_address, int(port)))
+		sock.shutdown(2)
 		return True
-	except:
+	except Exception:
 		return False
 
-if __name__ == "__main__":
-	pass
-
 def get_tokens(searchinfo):
+	""" Read token keywords ($keyword$) from search job properties """
 	tokens = {}
 	# Get the host of the splunkd service
 	splunkd_host = searchinfo.splunkd_uri[searchinfo.splunkd_uri.index("//")+2:searchinfo.splunkd_uri.rindex(":")]
@@ -236,15 +242,15 @@ def get_tokens(searchinfo):
 	}
 
 	# Get the search job attributes
-	if searchinfo.sid: 
+	if searchinfo.sid:
 		job_uri = en.buildEndpoint(
 			[
 				'search', 
 				'jobs', 
 				searchinfo.sid
 			], 
-			namespace=searchinfo.app, 
-			owner=searchinfo.owner
+			namespace = searchinfo.app,
+			owner = searchinfo.owner
 		)
 		try:
 			job_response = simpleRequest(job_uri, getargs={'output_mode':'json'}, sessionKey=searchinfo.session_key)[1]
@@ -256,25 +262,25 @@ def get_tokens(searchinfo):
 	else:
 		job_content = {}
 
+	#eprint("job_content=" + json.dumps(job_content))
 	for key, value in list(job_content.items()):
 		if value is not None:
 			tokens['job.' + key] = json.dumps(value, default=lambda o: o.__dict__)
-	#eprint("job_content=" + json.dumps(job_content))
 
 	if 'label' in list(job_content.keys()):
 		tokens['name'] = job_content['label']
 
 		# Get the saved search properties
-		entityClass = ['saved', 'searches']
+		entity_class = ['saved', 'searches']
 		uri = en.buildEndpoint(
-			entityClass,
+			entity_class,
 			namespace=searchinfo.app, 
 			owner=searchinfo.owner
 		)
 
-		responseBody = simpleRequest(uri, getargs={'output_mode':'json'}, sessionKey=searchinfo.session_key)[1]
+		response_body = simpleRequest(uri, getargs={'output_mode':'json'}, sessionKey=searchinfo.session_key)[1]
 
-		saved_search = json.loads(responseBody)
+		saved_search = json.loads(response_body)
 		ss_content = saved_search['entry'][0]['content']
 		#eprint("SSContent=" + json.dumps(ss_content))
 
@@ -286,11 +292,11 @@ def get_tokens(searchinfo):
 	tokens['owner'] = searchinfo.owner
 	tokens['app'] = searchinfo.app
 	#tokens['results_link'] = 'http://127.0.0.1:8000/en-US/app/search/search?sid=1622650709.10799'
-	
+
 	# Parse all of the nested objects (recursive function)
 	for t, tv in list(tokens.items()):
 		tokens = merge_two_dicts(tokens, parse_nested_json(t, tv))
-	
+
 	#for t, tv in list(tokens.items()):
 	#	if type(tv) == str:
 	#		eprint(t + '=' + tv)
@@ -298,37 +304,39 @@ def get_tokens(searchinfo):
 	#		eprint(t + "(type " + str(type(tv)) + ") = " + str(tv))
 	return tokens
 
-def parse_nested_json(parent_name, j):
+def parse_nested_json(parent_name, json_string):
+	""" Parse the nested json data within strings """
 	retval = {}
 	try:
-		if j is not None:
-			sub_tokens = json.loads(j)
-			if sub_tokens is not None:
-				for u, uv in list(sub_tokens.items()):
-					if type(uv) == dict:
-						retval = merge_two_dicts(retval, parse_nested_json(parent_name + '.' + u, json.dumps(uv)))
+		if json_string is not None:
+			json_object = json.loads(json_string)
+			if json_object is not None:
+				for key, value in list(json_object.items()):
+					if isinstance(value, dict):
+						retval = merge_two_dicts(retval, parse_nested_json(parent_name + '.' + key, json.dumps(value)))
 					else:
-						retval[(parent_name + '.' + u).replace('..', '.')] = uv
+						retval[(parent_name + '.' + key).replace('..', '.')] = value
 						#eprint('added subtoken ' + (parent_name + '.' + u).replace('..', '.') + '=' + str(uv))
 		return retval
 	except ValueError:
-		return {parent_name: j}
+		return {parent_name: json_string}
 	except AttributeError:
-		return {parent_name: j}
-	except BaseException as e:
+		return {parent_name: json_string}
+	except Exception as e:
 		eprint("Exception parsing JSON subtoken: " + repr(e))
 	
-def replace_object_tokens(o):
-	tokens = get_tokens(o._metadata.searchinfo)
-	for var in vars(o):
-		val = getattr(o, var)
+def replace_object_tokens(search_command_object):
+	""" Replace tokenized strings in properties of a search command object """
+	tokens = get_tokens(search_command_object._metadata.searchinfo)
+	for var in vars(search_command_object):
+		val = getattr(search_command_object, var)
 		try:
 			if '$' in val:
 				try:
-					setattr(o, var, replace_string_tokens(tokens, val))
-				except BaseException as e:
+					setattr(search_command_object, var, replace_string_tokens(tokens, val))
+				except Exception as e:
 					eprint("Error replacing token text for variable %s value %s: %s" % (var, val, repr(e)))
-		except:
+		except Exception:
 			# Probably an index out of range error
 			pass
 	#return o
@@ -337,18 +345,18 @@ def replace_object_tokens(o):
 	#	param = param.replace('$'+t+'$', v)
 	#return param
 
-def replace_string_tokens(tokens, v):
-	b = v
-	# Replace all tokenized strings
-	for t, tv in list(tokens.items()):
-		if tv is not None:
-			v = v.replace('$'+t+'$', str(tv).strip('"').strip("'"))
+def replace_string_tokens(tokens, tokenized_string):
+	""" Replace tokens ($token$) in tokenized strings """
+	for token, token_value in list(tokens.items()):
+		if token_value is not None:
+			tokenized_string = tokenized_string.replace('$'+token+'$', str(token_value).strip('"').strip("'"))
 	# Print the result if the value changed
 	#if b != v:
 	#	eprint(b + ' -> ' + v)
-	return v
+	return tokenized_string
 
 def recover_parameters(obj):
+	""" If arguments are not set for our command, get them manually from the command string """
 	args = sys.argv[2:]
 	for a in args:
 		key = a[0:a.index('=')].strip('"')
@@ -359,6 +367,7 @@ def recover_parameters(obj):
 			setattr(obj, key, None)
 
 def log_proxy_settings(logger):
+	""" Enumerate and log the environment's proxy settings """
 	# Enumerate proxy settings
 	http_proxy = os.environ.get('HTTP_PROXY')
 	https_proxy = os.environ.get('HTTPS_PROXY')
@@ -372,6 +381,7 @@ def log_proxy_settings(logger):
 		logger.debug("Proxy Exceptions: %s" % proxy_exceptions)
 
 def is_cloud(session_key):
+	""" Check to see if this host is running on Splunk Cloud """
 	uri = en.buildEndpoint(["server", "info", "server-info"], namespace='-', owner='nobody')
 	server_content = simpleRequest(uri, getargs={"output_mode": "json"}, sessionKey=session_key, raiseAllErrors=True)[1]
 	try:
@@ -384,6 +394,11 @@ def is_cloud(session_key):
 		return False
 
 def get_uncompressed_size(filename):
-    with open(filename, 'rb') as f:
-        f.seek(-4, 2)
-        return struct.unpack('I', f.read(4))[0]
+	""" Get the uncompressed size of a .gz file """
+	with open(filename, 'rb') as f:
+		f.seek(-4, 2)
+		return struct.unpack('I', f.read(4))[0]
+
+if __name__ == "__main__":
+	# pylint: disable=unnecessary-pass
+	pass

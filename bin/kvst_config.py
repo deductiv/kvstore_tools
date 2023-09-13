@@ -1,29 +1,23 @@
-#!/usr/bin/env python
+"""
+REST Endpoint for configuration dashboard
+Version: 2.0.9
+"""
 
-# REST Endpoint for configuration dashboard
-
-# Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.9
-
-from __future__ import print_function
-from builtins import str
-from future import standard_library
-standard_library.install_aliases()
 import sys
 import os
 import json
 from deductiv_helpers import setup_logger, str2bool
-import splunk.admin as admin
-import splunk.rest as rest
+from splunk import rest, admin
 import splunk.entity as en
 from splunk.clilib import cli_common as cli
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
-# https://github.com/HurricaneLabs/splunksecrets/blob/master/splunksecrets.py
+# pylint: disable=wrong-import-position, import-error
 from splunksecrets import encrypt_new
 
-options = ['log_level', 'default_path', 'backup_batch_size', 'compression', 'retention_days', 'retention_size']
+options = ['log_level', 'default_path', 'backup_batch_size', 
+		   'compression', 'retention_days', 'retention_size']
 for i in range(1, 20):
 	options.append('credential' + str(i)) # credential1 through credential19
 
@@ -42,7 +36,7 @@ class ConfigApp(admin.MConfigHandler):
 
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
-		except BaseException as e:
+		except Exception as e:
 			raise Exception("Could not read configuration: " + repr(e))
 		
 		# Facility info - prepended to log lines
@@ -50,7 +44,7 @@ class ConfigApp(admin.MConfigHandler):
 		facility = os.path.splitext(facility)[0]
 		try:
 			logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		except BaseException as e:
+		except Exception as e:
 			raise Exception("Could not create logger: " + repr(e))
 
 		logger.debug('KV Store Tools Settings handler started (List)')
@@ -85,7 +79,7 @@ class ConfigApp(admin.MConfigHandler):
 
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
-		except BaseException as e:
+		except Exception as e:
 			raise Exception("Could not read configuration: " + repr(e))
 		
 		# Facility info - prepended to log lines
@@ -93,7 +87,7 @@ class ConfigApp(admin.MConfigHandler):
 		facility = os.path.splitext(facility)[0]
 		try:
 			logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		except BaseException as e:
+		except Exception as e:
 			raise Exception("Could not create logger: " + repr(e))
 
 		logger.debug('KV Store Tools Settings handler started (Edit)')
@@ -128,7 +122,7 @@ class ConfigApp(admin.MConfigHandler):
 						hostname, username, password = v.split(':')
 						try:
 							v = hostname + ":" + username + ":" + encrypt_new(splunk_secret, password)
-						except BaseException as e:
+						except Exception as e:
 							logger.error("Error saving encrypted password for %s: %s" % (hostname, repr(e)))
 							continue
 							
@@ -151,7 +145,7 @@ class ConfigApp(admin.MConfigHandler):
 						new_config['backup_batch_size'][0] = None
 				
 				logger.debug("Writing configuration")
-			except BaseException as e:
+			except Exception as e:
 				logger.critical("Error parsing configuration: %s" % repr(e))
 			## Write the configuration via REST API
 			# Add the field values to an entity object

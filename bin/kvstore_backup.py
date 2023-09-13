@@ -1,31 +1,25 @@
-#!/usr/bin/env python
+"""
+KV Store Backup
+Enables backup of collections on a per-app basis
+Enumerates collections for an app and backs up JSON for each one
+Version: 2.0.9
+"""
 
-# KV Store Backup
-# Enables backup of collections on a per-app basis
-# Enumerates collections for an app and backs up JSON for each one
-
-# Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.9
-
-from __future__ import division
-from __future__ import print_function
-from future import standard_library
-standard_library.install_aliases()
-from builtins import str
-from past.utils import old_div
-import sys, os
+import sys
+import os
 import stat
 import json
 import time
 from datetime import datetime
 import glob
 import kv_common as kv
-from deductiv_helpers import setup_logger, eprint, search_console
+from deductiv_helpers import setup_logger, SearchConsole
 from splunk.clilib import cli_common as cli
-import splunk.rest as rest
+from splunk import rest
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
+# pylint: disable=wrong-import-position
 from splunklib.searchcommands import \
     dispatch, GeneratingCommand, Configuration, Option, validators
 
@@ -81,7 +75,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 	def generate(self):
 		try:
 			cfg = cli.getConfStanza('kvstore_tools','settings')
-		except BaseException as e:
+		except Exception as e:
 			self.write_error("Could not read configuration: " + repr(e))
 			exit(1)
 		
@@ -89,7 +83,7 @@ class KVStoreBackupCommand(GeneratingCommand):
 		facility = os.path.basename(__file__)
 		facility = os.path.splitext(facility)[0]
 		logger = setup_logger(cfg["log_level"], 'kvstore_tools.log', facility)
-		ui = search_console(logger, self)
+		ui = SearchConsole(logger, self)
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
 
 		batch_size = int(cfg.get('backup_batch_size'))

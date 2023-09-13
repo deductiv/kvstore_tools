@@ -1,29 +1,24 @@
-#!/usr/bin/env python
+"""
+KV Store Collection Bulk Record Deleter
+Deletes records from a KV Store collection based on _key value in search results
+Parameters are based on search results
+Version: 2.0.9
+"""
 
-# KV Store Collection Bulk Record Deleter
-# Deletes records from a KV Store collection based on _key value in search results
-# Parameters are based on search results
-
-# Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.9
-
-from __future__ import print_function
-from builtins import str
-from future import standard_library
-standard_library.install_aliases()
 import sys
 import os
 import urllib.parse
 import http.client as httplib
-import kv_common as kv
 from multiprocessing import Pool
 from multiprocessing.dummy import Pool as ThreadPool
 import threading
-from deductiv_helpers import request, setup_logger, search_console
+import kv_common as kv
+from deductiv_helpers import request, setup_logger, SearchConsole
 from splunk.clilib import cli_common as cli
 
 # Add lib folders to import path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
+# pylint: disable=wrong-import-position
 from splunklib.searchcommands import \
     dispatch, StreamingCommand, Configuration, Option
 
@@ -96,7 +91,7 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 							response, response_code = request('DELETE', delete_url, '', headers, self.conn)
 							logger.debug('Server response for key %s: %s' % (event_key_value, response))
 							lock.release()
-						except BaseException as e:
+						except Exception as e:
 							logger.error('ERROR Failed to delete key %s: %s', (event_key_value, repr(e)))
 
 						if response_code == 200:
@@ -107,17 +102,17 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 							logger.error("Error %d deleting key %s: %s" % (response_code, event_key_value, response))
 							delete_event['delete_status'] = "error"
 							return delete_event
-					except BaseException as e:
+					except Exception as e:
 						logger.error("Error deleting key %s: %s" % (event_key_value, repr(e)))
 						delete_event['delete_status'] = "error"
 						return delete_event
 			else:
 				logger.error("Key field not found in event: %s", event_dict)
-		except BaseException as e:
+		except Exception as e:
 			logger.exception("Error processing event: %s", e)
 			
 	def stream(self, events):
-		ui = search_console(logger, self)
+		ui = SearchConsole(logger, self)
 		logger.info('Script started by %s' % self._metadata.searchinfo.username)
 
 		if self.app:
@@ -162,7 +157,7 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 			if not collection_present:
 				ui.exit_error("KVStore collection %s/%s not found" % (self.app, self.collection))
 
-		except BaseException as e:
+		except Exception as e:
 			ui.exit_error('Error enumerating collections: %s' % repr(e))
 
 		# Make a Pool of workers
@@ -170,7 +165,7 @@ class KVStoreDeleteKeysCommand(StreamingCommand):
 
 		try:
 			results = pool.map(self.delete_key_from_event, events)
-		except BaseException as e:
+		except Exception as e:
 			logger.error("%s" % repr(e), exc_info=True)
 			results = {}
 			
