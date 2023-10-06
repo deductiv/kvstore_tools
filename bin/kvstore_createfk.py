@@ -1,4 +1,5 @@
-"""KV Store Record Foreign Key Creation
+"""
+KV Store Record Foreign Key Creation
 Creates records in a collection based on group-by field
 Appends all events with the key value in a user-specified field,
 which can be written to a second collection (referencing the keys in the first)

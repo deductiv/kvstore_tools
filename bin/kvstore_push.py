@@ -1,23 +1,17 @@
-#!/usr/bin/env python
+"""
+KV Store Push
+Enables the upload of local collections to a remote SH instance on a per-app basis
+Pushes collections from a local search head to a remote SH or SHC node KV store
+Version: 2.0.9
+"""
 
-# KV Store Push
-# Enables the upload of local collections to a remote SH instance on a per-app basis
-# Pushes collections from a local search head to a remote SH or SHC node KV store
-
-# Author: J.R. Murray <jr.murray@deductiv.net>
-# Version: 2.0.9
-
-from __future__ import print_function
-from builtins import str
-from future import standard_library
-standard_library.install_aliases()
 import sys
 import os
 import json
 import urllib.error
 import urllib.parse
 import kv_common as kv
-from deductiv_helpers import setup_logger, eprint, is_ipv4, SearchConsole
+from deductiv_helpers import setup_logger,  is_ipv4, SearchConsole
 from splunk.clilib import cli_common as cli
 from splunk import rest
 

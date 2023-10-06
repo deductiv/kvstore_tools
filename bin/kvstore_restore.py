@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 KV Store Collection Restore
 Enables restore of backed up KV Store from json or json.gz files
